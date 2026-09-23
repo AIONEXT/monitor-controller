@@ -29,8 +29,7 @@ Universal monitor discovery and hardware control via DDC/CI protocol. Adjust bri
 |----------|----------|
 | **Windows** | [MonitorControllerSetup.exe](https://github.com/AIONEXT/monitor-controller/releases) |
 | **macOS** | [MonitorController.dmg](https://github.com/AIONEXT/monitor-controller/releases) |
-| **Linux (Deb)** | [monitor-controller.deb](https://github.com/AIONEXT/monitor-controller/releases) |
-| **Linux (RPM)** | [monitor-controller.rpm](https://github.com/AIONEXT/monitor-controller/releases) |
+ | **Linux** | [monitor-controller-linux.zip](https://github.com/AIONEXT/monitor-controller/releases) |
 
 > **No releases yet?** Build from source in minutes — see below.
 
