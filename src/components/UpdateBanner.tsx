@@ -17,8 +17,8 @@ export const UpdateBanner: React.FC<UpdateBannerProps> = ({
   onInstall, 
   onDismiss 
 }) => {
-  const isDownloading = progress && progress.percent !== undefined;
-  const isDownloaded = info && !isDownloading;
+const isDownloading = progress && progress.percent !== undefined;
+  const isDownloaded = !isDownloading;
 
   return (
     <div className="update-banner" role="alert">
@@ -28,14 +28,14 @@ export const UpdateBanner: React.FC<UpdateBannerProps> = ({
         </div>
         <div className="update-info">
           <strong>Update Available</strong>
-          <span>Version {info?.version} is ready to install</span>
+          <span>Version {info.version} is ready to install</span>
         </div>
         <div className="update-actions">
           {isDownloading && (
             <div className="download-progress">
               <div className="progress-bar">
-                <div 
-                  className="progress-fill" 
+                <div
+                  className="progress-fill"
                   style={{ width: `${progress.percent}%` }}
                 />
               </div>

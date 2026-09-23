@@ -142,6 +142,8 @@ monitor-controller/
 │   ├── monitor-manager.ts    # Monitor orchestration
 │   ├── monitor-types.ts      # TypeScript interfaces
 │   ├── auto-updater.ts       # Update handling
+│   ├── types/
+│   │   └── electron-api.d.ts # Electron API type declarations
 │   ├── hardware/
 │   │   ├── platform-detector.ts
 │   │   ├── factory.ts        # Backend factory

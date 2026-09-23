@@ -1,12 +1,12 @@
 import React from 'react';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 
 interface ToastProps {
   message: string;
   type: 'success' | 'error' | 'info';
 }
 
-const ICON_MAP = {
+const ICON_MAP: Record<string, IconName> = {
   success: 'check',
   error: 'alert',
   info: 'info',

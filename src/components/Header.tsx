@@ -5,9 +5,10 @@ interface HeaderProps {
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
+  version?: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onMinimize, onMaximize, onClose }) => {
+export const Header: React.FC<HeaderProps> = ({ onMinimize, onMaximize, onClose, version = '1.0.0' }) => {
   return (
     <header className="header">
       <div className="header-left">
@@ -15,7 +16,7 @@ export const Header: React.FC<HeaderProps> = ({ onMinimize, onMaximize, onClose 
           <Icon name="monitor" size={24} />
           <span>Monitor Controller</span>
         </div>
-        <span className="version-badge">v1.0.0</span>
+        <span className="version-badge">v{version}</span>
       </div>
       <div className="header-right">
         <div className="header-spacer" />

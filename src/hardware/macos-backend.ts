@@ -14,7 +14,9 @@ export class MacOSMonitorBackend {
     _settingId: string,
     _value: number
   ): Promise<MonitorSetting | null> {
-    throw new Error('DDC/CI not supported on macOS. Use monitor OSD controls.');
+    throw new Error(
+      'DDC/CI is not supported on macOS. Use the monitor OSD controls, or install ddcutil on Linux.'
+    );
   }
 
   async resetToDefaults(_monitorId: string): Promise<MonitorSetting[]> {
@@ -29,7 +31,7 @@ export class MacOSMonitorBackend {
     return [
       {
         id: 'monitor-0',
-        name: 'Built-in Display (macOS)',
+        name: 'Built-in Display',
         manufacturer: 'Apple',
         model: 'Built-in',
         serialNumber: 'BUILTIN',

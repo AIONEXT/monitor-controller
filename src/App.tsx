@@ -42,6 +42,7 @@ export const App: React.FC = () => {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateProgress, setUpdateProgress] = useState<UpdateProgress | null>(null);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
+  const [appVersion, setAppVersion] = useState('1.0.0');
   const toastIdRef = useRef(0);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -91,6 +92,10 @@ export const App: React.FC = () => {
       showToast('Failed to load monitor settings', 'error');
     }
   }, [showToast]);
+
+  useEffect(() => {
+    window.electronAPI.getAppVersion().then(setAppVersion).catch(() => setAppVersion('1.0.0'));
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -224,6 +229,7 @@ export const App: React.FC = () => {
   return (
     <div className="app">
       <Header
+        version={appVersion}
         onMinimize={() => window.electronAPI.windowMinimize()}
         onMaximize={() => window.electronAPI.windowMaximize()}
         onClose={() => window.electronAPI.windowClose()}
