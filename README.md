@@ -20,8 +20,9 @@ Universal monitor discovery and hardware control via DDC/CI protocol. Adjust bri
 
 ## 📥 Download
 
-> **Note:** Pre-built binaries are published automatically with each release.
-> See the [Releases page](https://github.com/AIONEXT/monitor-controller/releases) for available downloads.
+> **Pre-built binaries** are published automatically whenever a release tag is pushed
+> (e.g. `v1.0.0`). Visit the [Releases page](https://github.com/AIONEXT/monitor-controller/releases)
+> to download the appropriate installer for your platform.
 
 ### Latest Release
 | Platform | Download |
@@ -31,8 +32,24 @@ Universal monitor discovery and hardware control via DDC/CI protocol. Adjust bri
 | **Linux (Deb)** | [monitor-controller.deb](https://github.com/AIONEXT/monitor-controller/releases) |
 | **Linux (RPM)** | [monitor-controller.rpm](https://github.com/AIONEXT/monitor-controller/releases) |
 
+> **No releases yet?** Build from source in minutes — see below.
+
 ### Building from Source
-See the [Development](#development) section below for build instructions.
+
+```bash
+# 1. Clone and install dependencies
+git clone https://github.com/AIONEXT/monitor-controller.git
+cd monitor-controller
+npm ci
+
+# 2. Generate platform icons
+npm run icons
+
+# 3. Build installers (Windows/macOS/Linux)
+npm run make
+```
+
+> **Requirements:** Node.js 20+, npm 10+. On Linux also install `ddcutil` and add your user to the `i2c` group.
 
 ## 🖥️ Requirements
 
