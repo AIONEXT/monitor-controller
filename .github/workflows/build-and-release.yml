@@ -118,14 +118,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsecret-1-dev libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils rpm dpkg ruby ruby-dev build-essential
           sudo apt-get install -y dpkg-dev rpm-build || true
-          sudo gem install fpm --no-document
+          gem install fpm --user-install --no-document || sudo gem install fpm --no-document
+          echo "${HOME}/.local/share/gem/bin" >> "${GITHUB_PATH}"
+          echo "/var/lib/gems/*/bin" >> "${GITHUB_PATH}"
+          echo "/usr/local/bin" >> "${GITHUB_PATH}"
+
+      - name: Verify fpm
+        run: |
+          echo "Checking fpm availability..."
+          which fpm || find / -name fpm -type f -path '*/bin/*' 2>/dev/null | head -5 || true
+          fpm --version || true
 
       - name: Install dependencies
         run: npm ci
-        working-directory: .
-
-      - name: Add gem bin to PATH
-        run: echo "${HOME}/.local/share/gem/bin" >> "${GITHUB_PATH}"
         working-directory: .
 
       - name: Build Linux Packages
