@@ -1,5 +1,4 @@
 import type { ForgeConfig } from '@electron-forge/shared-types';
-import { existsSync } from 'node:fs';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -39,10 +38,6 @@ const config: ForgeConfig = {
       setupExe: 'MonitorControllerSetup.exe',
       setupIcon: './assets/icon.ico',
        noMsi: true,
-       ...(existsSync('./assets/installer-loading.gif')
-         ? { loadingGif: './assets/installer-loading.gif' }
-         : {}),
-       remoteReleases: 'https://github.com/AIONEXT/monitor-controller/releases',
     }),
     new MakerZIP({}, ['darwin']),
     new MakerRpm({
