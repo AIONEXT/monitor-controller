@@ -20,13 +20,19 @@ Universal monitor discovery and hardware control via DDC/CI protocol. Adjust bri
 
 ## 📥 Download
 
+> **Note:** Pre-built binaries are published automatically with each release.
+> See the [Releases page](https://github.com/AIONEXT/monitor-controller/releases) for available downloads.
+
 ### Latest Release
 | Platform | Download |
 |----------|----------|
-| **Windows** | [MonitorControllerSetup.exe](https://github.com/AIONEXT/monitor-controller/releases/latest/download/MonitorControllerSetup.exe) |
-| **macOS** | [MonitorController.dmg](https://github.com/AIONEXT/monitor-controller/releases/latest/download/MonitorController.dmg) |
-| **Linux (Deb)** | [monitor-controller.deb](https://github.com/AIONEXT/monitor-controller/releases/latest/download/monitor-controller.deb) |
-| **Linux (RPM)** | [monitor-controller.rpm](https://github.com/AIONEXT/monitor-controller/releases/latest/download/monitor-controller.rpm) |
+| **Windows** | [MonitorControllerSetup.exe](https://github.com/AIONEXT/monitor-controller/releases) |
+| **macOS** | [MonitorController.dmg](https://github.com/AIONEXT/monitor-controller/releases) |
+| **Linux (Deb)** | [monitor-controller.deb](https://github.com/AIONEXT/monitor-controller/releases) |
+| **Linux (RPM)** | [monitor-controller.rpm](https://github.com/AIONEXT/monitor-controller/releases) |
+
+### Building from Source
+See the [Development](#development) section below for build instructions.
 
 ## 🖥️ Requirements
 
