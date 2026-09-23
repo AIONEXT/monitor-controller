@@ -116,7 +116,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsecret-1-dev libgconf-2-4 libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils rpm
+          sudo apt-get install -y libsecret-1-dev libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils rpm
 
       - name: Install dependencies
         run: npm ci
