@@ -154,6 +154,15 @@ The log is bounded to the last 1,000 entries per file to prevent unbounded growt
 
 ---
 
+## Security Notes
+
+**Runtime dependencies:** 0 known vulnerabilities (`npm audit --omit=dev` is clean) - this is what ships to end users.
+
+**Dev/build tooling:** The build toolchain (Electron Forge plugins, webpack, eslint) carries known advisories in transitive dev dependencies. These never ship inside the packaged application. Upgrading them requires a coordinated toolchain migration (Forge 8/webpack 5 major bumps); track via the repository Dependabot alerts at:
+`https://github.com/AIONEXT/monitor-controller/security/dependabot`
+
+---
+
 ## Troubleshooting
 
 **No monitors detected**
