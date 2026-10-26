@@ -35,4 +35,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowMinimize: () => ipcRenderer.send('window-minimize'),
   windowMaximize: () => ipcRenderer.send('window-maximize'),
   windowClose: () => ipcRenderer.send('window-close'),
+  // Enterprise APIs
+  getProfiles: () => ipcRenderer.invoke('enterprise-get-profiles'),
+  saveProfile: (profile: unknown) => ipcRenderer.invoke('enterprise-save-profile', profile),
+  deleteProfile: (profileId: string) => ipcRenderer.invoke('enterprise-delete-profile', profileId),
+  applyProfile: (profileId: string, monitorIds: string[]) => ipcRenderer.invoke('enterprise-apply-profile', profileId, monitorIds),
+  getSchedules: () => ipcRenderer.invoke('enterprise-get-schedules'),
+  saveSchedule: (schedule: unknown) => ipcRenderer.invoke('enterprise-save-schedule', schedule),
+  deleteSchedule: (scheduleId: string) => ipcRenderer.invoke('enterprise-delete-schedule', scheduleId),
+  getAuditLog: (limit?: number) => ipcRenderer.invoke('enterprise-get-audit-log', limit),
+  logAudit: (entry: unknown) => ipcRenderer.invoke('enterprise-log-audit', entry),
+  getEnterpriseConfig: () => ipcRenderer.invoke('enterprise-get-config'),
+  saveEnterpriseConfig: (config: unknown) => ipcRenderer.invoke('enterprise-save-config', config),
 });

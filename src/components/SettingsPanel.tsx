@@ -1,5 +1,5 @@
 import React from 'react';
-import { Monitor, MonitorSetting, MonitorCapabilities, VCP_CODES, COLOR_TEMP_VALUES, GAMMA_VALUES, INPUT_SOURCE_VALUES } from '../monitor-types';
+import { Monitor, MonitorSetting, MonitorCapabilities, VCP_CODES, COLOR_TEMP_VALUES, GAMMA_VALUES, INPUT_SOURCE_VALUES, POWER_MODE_VALUES, ASPECT_RATIO_VALUES, RESPONSE_TIME_VALUES, OVSCAN_VALUES, DYNAMIC_CONTRAST_VALUES } from '../monitor-types';
 import { SettingSlider } from './SettingSlider';
 import { SettingSelect } from './SettingSelect';
 import { Icon } from './Icon';
@@ -13,11 +13,82 @@ interface SettingsPanelProps {
 }
 
 const SETTING_GROUPS = {
-  'Display': ['brightness', 'contrast', 'sharpness'],
-  'Color': ['colorTemp', 'gamma', 'hue', 'saturation'],
-  'Comfort': ['blueLight'],
-  'Advanced': ['autoBrightness', 'powerMode', 'inputSource'],
+  'Display': ['brightness', 'contrast', 'sharpness', 'blackLevel', 'whiteLevel'],
+  'Color': ['colorTemp', 'gamma', 'hue', 'saturation', 'redGain', 'greenGain', 'blueGain', 'redOffset', 'greenOffset', 'blueOffset', 'colorFormat', 'digitalVibrance'],
+  'Comfort': ['blueLight', 'autoBrightness', 'ecoMode', 'flickerFree'],
+  'Advanced': ['overscan', 'aspectRatio', 'dynamicContrast', 'responseTime', 'gameMode', 'hdrMode'],
+  'Power': ['powerMode', 'powerSave'],
+  'Input': ['inputSource', 'autoInput'],
+  'Audio': ['volume', 'mute', 'audioInput'],
 };
+
+const DISCRETE_SELECT_SETTINGS = ['colorTemp', 'gamma', 'inputSource', 'aspectRatio', 'responseTime', 'overscan', 'dynamicContrast', 'powerMode', 'powerSave', 'autoInput', 'ecoMode', 'flickerFree', 'gameMode', 'hdrMode', 'colorFormat', 'audioInput', 'mute', 'autoBrightness'];
+
+function getSelectOptions(settingId: string): { value: number; label: string }[] {
+  switch (settingId) {
+    case 'colorTemp':
+      return Object.entries(COLOR_TEMP_VALUES).map(([value, label]) => ({
+        value: parseInt(value),
+        label,
+      }));
+    case 'gamma':
+      return Object.entries(GAMMA_VALUES).map(([value, label]) => ({
+        value: parseInt(value),
+        label,
+      }));
+    case 'inputSource':
+      return Object.entries(INPUT_SOURCE_VALUES).map(([value, label]) => ({
+        value: parseInt(value),
+        label,
+      }));
+    case 'powerMode':
+      return Object.entries(POWER_MODE_VALUES).map(([value, label]) => ({
+        value: parseInt(value),
+        label,
+      }));
+    case 'aspectRatio':
+      return Object.entries(ASPECT_RATIO_VALUES).map(([value, label]) => ({
+        value: parseInt(value),
+        label,
+      }));
+    case 'responseTime':
+      return Object.entries(RESPONSE_TIME_VALUES).map(([value, label]) => ({
+        value: parseInt(value),
+        label,
+      }));
+    case 'overscan':
+      return Object.entries(OVSCAN_VALUES).map(([value, label]) => ({
+        value: parseInt(value),
+        label,
+      }));
+    case 'dynamicContrast':
+      return Object.entries(DYNAMIC_CONTRAST_VALUES).map(([value, label]) => ({
+        value: parseInt(value),
+        label,
+      }));
+    default: {
+      // Generic toggle/select for discrete settings without a value map
+      const vcpInfo = VCP_CODES[settingId];
+      if (vcpInfo && vcpInfo.type === 'discrete') {
+        const opts: { value: number; label: string }[] = [];
+        const onOffIds = ['powerSave', 'autoInput', 'flickerFree', 'gameMode', 'mute', 'autoBrightness'];
+        if (onOffIds.includes(settingId)) {
+          opts.push({ value: 0, label: 'Off' }, { value: 1, label: 'On' });
+        } else if (settingId === 'ecoMode') {
+          opts.push({ value: 0, label: 'Off' }, { value: 1, label: 'Low' }, { value: 2, label: 'Medium' }, { value: 3, label: 'High' });
+        } else if (settingId === 'hdrMode') {
+          opts.push({ value: 0, label: 'Off' }, { value: 1, label: 'On' }, { value: 2, label: 'Auto' });
+        } else {
+          for (let v = vcpInfo.defaultMin; v <= vcpInfo.defaultMax; v += vcpInfo.defaultStep) {
+            opts.push({ value: v, label: String(v) });
+          }
+        }
+        return opts;
+      }
+      return [];
+    }
+  }
+}
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
   monitor, 
@@ -62,8 +133,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 {groupSettings.map(setting => {
                   const vcpInfo = VCP_CODES[setting.id];
                   const isDiscrete = vcpInfo?.type === 'discrete';
-                  
-                  if (isDiscrete && (setting.id === 'colorTemp' || setting.id === 'gamma' || setting.id === 'inputSource')) {
+
+                  if (isDiscrete && DISCRETE_SELECT_SETTINGS.includes(setting.id)) {
                     return (
                       <SettingSelect
                         key={setting.id}
@@ -73,7 +144,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       />
                     );
                   }
-                  
+
                   return (
                     <SettingSlider
                       key={setting.id}
@@ -107,25 +178,3 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     </div>
   );
 };
-
-function getSelectOptions(settingId: string): { value: number; label: string }[] {
-  switch (settingId) {
-    case 'colorTemp':
-      return Object.entries(COLOR_TEMP_VALUES).map(([value, label]) => ({
-        value: parseInt(value),
-        label,
-      }));
-    case 'gamma':
-      return Object.entries(GAMMA_VALUES).map(([value, label]) => ({
-        value: parseInt(value),
-        label,
-      }));
-    case 'inputSource':
-      return Object.entries(INPUT_SOURCE_VALUES).map(([value, label]) => ({
-        value: parseInt(value),
-        label,
-      }));
-    default:
-      return [];
-  }
-}

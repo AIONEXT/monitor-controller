@@ -17,6 +17,18 @@ interface ElectronAPI {
   windowMinimize: () => void;
   windowMaximize: () => void;
   windowClose: () => void;
+  // Enterprise APIs
+  getProfiles: () => Promise<import('../monitor-types').MonitorProfile[]>;
+  saveProfile: (profile: import('../monitor-types').MonitorProfile) => Promise<import('../monitor-types').MonitorProfile>;
+  deleteProfile: (profileId: string) => Promise<void>;
+  applyProfile: (profileId: string, monitorIds: string[]) => Promise<{ applied: number }>;
+  getSchedules: () => Promise<import('../monitor-types').MonitorSchedule[]>;
+  saveSchedule: (schedule: import('../monitor-types').MonitorSchedule) => Promise<import('../monitor-types').MonitorSchedule>;
+  deleteSchedule: (scheduleId: string) => Promise<void>;
+  getAuditLog: (limit?: number) => Promise<import('../monitor-types').AuditLogEntry[]>;
+  logAudit: (entry: import('../monitor-types').AuditLogEntry) => Promise<void>;
+  getEnterpriseConfig: () => Promise<import('../monitor-types').EnterpriseConfig>;
+  saveEnterpriseConfig: (config: import('../monitor-types').EnterpriseConfig) => Promise<import('../monitor-types').EnterpriseConfig>;
 }
 
 interface UpdateInfo {

@@ -5,17 +5,26 @@
 [![Build Status](https://github.com/AIONEXT/monitor-controller/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/AIONEXT/monitor-controller/actions)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)]()
 
-Universal monitor discovery and hardware control via DDC/CI protocol. Adjust brightness, contrast, color temperature, and more on any monitor - no manufacturer-specific software required.
+Universal monitor discovery and hardware control via DDC/CI protocol. Adjust brightness, contrast, color temperature, and more on any monitor - no manufacturer-specific software required. Now with **enterprise-grade features** for commercial deployments.
 
 ## ✨ Features
 
+### Core Hardware Control
 - **Universal Compatibility** - Works with any DDC/CI compatible monitor (LG, Dell, Samsung, ASUS, BenQ, Acer, ViewSonic, etc.)
 - **Real-time Hardware Control** - Direct communication via DDC/CI protocol over HDMI/DisplayPort/USB-C
 - **Auto-Detection** - Automatically discovers connected monitors and reads EDID information
-- **Preset Profiles** - Gaming, Movie, Reading, Standard modes with one click
+- **30+ VCP Controls** - Brightness, contrast, RGB gain/offset, color temperature, gamma, power mode, input source, audio, gaming modes, HDR, and more
+- **Brand-Specific Compatibility** - Intelligent capability detection per manufacturer
+
+### Enterprise Features
+- **Configuration Profiles** - Capture and restore complete monitor setups; apply to any monitor or all at once
+- **Profile Export/Import** - Share configurations as JSON files across teams and deployments
+- **Audit Logging** - Every setting change is recorded with timestamps for compliance (SOC 2 / ISO 27001 friendly)
+- **Enterprise Config** - Toggle audit logging, remote management, admin requirements, monitor limits
+- **Preset Modes** - Standard, Gaming, Movie, Reading with one click
+- **Secure by Design** - Context-isolated IPC, no node integration in renderer, ASAR integrity fuses
 - **Auto-Updates** - Built-in update mechanism via GitHub Releases
 - **Cross-Platform** - Windows, macOS, and Linux support
-- **Code Signed** - EV certificate signed installers (no SmartScreen warnings)
 - **Accessible** - Full keyboard navigation and screen reader support
 
 ## 📥 Download
@@ -70,21 +79,77 @@ npm run make
 
 ## 🔧 Supported Settings
 
+### Display
 | Setting | VCP Code | Description |
 |---------|----------|-------------|
 | Brightness | 0x10 | Backlight intensity |
 | Contrast | 0x12 | Contrast ratio |
 | Sharpness | 0x8D | Edge enhancement |
-| Color Temperature | 0x14 | 4000K - 9300K |
+| Black Level | 0x1D | Darkest black reproduction |
+| White Level | 0x1E | Brightest white reproduction |
+
+### Color
+| Setting | VCP Code | Description |
+|---------|----------|-------------|
+| Color Temperature | 0x14 | 3000K - 10000K |
 | Gamma | 0x72 | 1.8 - 2.6 |
 | Hue | 0x16 | Color hue shift |
 | Saturation | 0x18 | Color saturation |
-| Blue Light Filter | 0xE0 | Low blue light mode |
-| Auto Brightness | 0xD0 | Ambient light sensor |
-| Power Mode | 0xD6 | Power saving modes |
-| Input Source | 0x60 | HDMI/DP/USB-C selection |
+| RGB Gain (R/G/B) | 0x96/0x98/0x9A | Per-channel gain calibration |
+| RGB Offset (R/G/B) | 0x97/0x99/0x9B | Per-channel offset calibration |
+| Color Format | 0x8C | RGB / YPbPr selection |
+| Digital Vibrance | 0xE2 | Color vibrance boost |
 
-*Availability depends on monitor capabilities*
+### Comfort
+| Setting | VCP Code | Description |
+|---------|----------|-------------|
+| Blue Light Filter | 0xE0 | Low blue light mode |
+| Auto Brightness | 0xD0 | Ambient light adaptive |
+| Eco Mode | 0x1A | Energy saving modes |
+| Flicker Free | 0xE1 | PWM flicker reduction |
+
+### Advanced / Gaming
+| Setting | VCP Code | Description |
+|---------|----------|-------------|
+| Overscan | 0xD8 | Image overscan adjustment |
+| Aspect Ratio | 0xD9 | 4:3, 16:9, 16:10, 21:9, 1:1 |
+| Dynamic Contrast | 0xE4 | Automatic contrast |
+| Response Time | 0xE5 | Pixel response presets |
+| Game Mode | 0xE6 | Low latency mode |
+| HDR Mode | 0xE7 | High Dynamic Range |
+
+### Power / Input / Audio
+| Setting | VCP Code | Description |
+|---------|----------|-------------|
+| Power Mode | 0xD6 | On / Standby / Suspend / Off / Deep Sleep |
+| Power Save | 0xD7 | Automatic power saving |
+| Input Source | 0x60 | VGA / DVI / DP / HDMI-1..4 / USB-C |
+| Auto Input | 0x61 | Automatic input detection |
+| Volume | 0x62 | Built-in speaker volume |
+| Mute | 0x63 | Audio mute |
+| Audio Input | 0x64 | Audio source selection |
+
+*Availability depends on monitor capabilities and brand support*
+
+## 🏢 Enterprise Usage
+
+### Configuration Profiles
+Capture any monitor's complete state into a named profile and restore it anytime:
+1. Adjust settings to your desired state
+2. **Profiles → New Profile → Save Current Settings**
+3. Apply to any monitor (or all) with one click
+4. Export profiles as JSON to share across your fleet
+
+### Audit Logging
+All setting changes are persisted to `%APPDATA%/monitor-controller/enterprise/audit-log.json` (platform equivalent) including timestamp, monitor, setting, old/new values, and action type - ready for compliance review.
+
+### Data Locations
+| Data | Location |
+|------|----------|
+| Profiles | `<userData>/enterprise/profiles.json` |
+| Schedules | `<userData>/enterprise/schedules.json` |
+| Audit Log | `<userData>/enterprise/audit-log.json` |
+| Enterprise Config | `<userData>/enterprise/config.json` |
 
 ## 🚀 Quick Start
 
@@ -157,15 +222,19 @@ For commercial distribution, configure code signing:
 ```
 monitor-controller/
 ├── src/
-│   ├── index.ts              # Main process entry
-│   ├── preload.ts            # Secure IPC bridge
+│   ├── index.ts              # Main process entry + IPC handlers
+│   ├── preload.ts            # Secure IPC bridge (context isolation)
 │   ├── renderer.tsx          # Renderer entry
 │   ├── App.tsx               # Main React component
-│   ├── monitor-manager.ts    # Monitor orchestration
-│   ├── monitor-types.ts      # TypeScript interfaces
+│   ├── monitor-manager.ts    # Monitor orchestration + caching
+│   ├── monitor-types.ts      # TypeScript interfaces + VCP code registry
 │   ├── auto-updater.ts       # Update handling
+│   ├── enterprise-store.ts   # Persistent store (profiles/schedules/audit/config)
+│   ├── enterprise-handlers.ts# Enterprise IPC handler registration
 │   ├── types/
 │   │   └── electron-api.d.ts # Electron API type declarations
+│   ├── services/
+│   │   └── enterprise-service.ts # Renderer-side enterprise client
 │   ├── hardware/
 │   │   ├── platform-detector.ts
 │   │   ├── factory.ts        # Backend factory
@@ -179,16 +248,13 @@ monitor-controller/
 │       ├── SettingSlider.tsx
 │       ├── SettingSelect.tsx
 │       ├── PresetsPanel.tsx
+│       ├── ProfileManager.tsx   # Enterprise configuration profiles
 │       ├── UpdateBanner.tsx
 │       ├── Toast.tsx
 │       └── Icon.tsx
-├── assets/
-│   ├── icon.svg              # Source icon
-│   ├── icon.ico              # Windows icon (generated)
-│   ├── icon.icns             # macOS icon (generated)
-│   ├── icon.png              # Linux icon (generated)
-│   └── installer-loading.gif # Windows installer animation
+├── assets/                   # Icons (generated from icon.svg)
 ├── certs/                    # Code signing certificates (gitignored)
+├── docs/                     # Setup & architecture guides
 ├── .github/workflows/        # CI/CD pipelines
 ├── forge.config.ts           # Electron Forge config
 ├── webpack.*.ts              # Webpack configs

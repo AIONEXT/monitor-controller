@@ -418,6 +418,8 @@ $monitors | ConvertTo-Json -Depth 3
         step: vcpInfo.defaultStep,
         vcpCode: vcpInfo.code,
         type: vcpInfo.type,
+        category: vcpInfo.category,
+        description: vcpInfo.description,
       };
     }
     return caps;
@@ -428,14 +430,26 @@ $monitors | ConvertTo-Json -Depth 3
       brightness: monitor.isPrimary ? 75 : 60,
       contrast: monitor.isPrimary ? 70 : 75,
       sharpness: 50,
+      blackLevel: 50,
+      whiteLevel: 50,
       colorTemp: 6500,
       gamma: 22,
       hue: 50,
       saturation: monitor.isPrimary ? 50 : 55,
+      redGain: 50,
+      greenGain: 50,
+      blueGain: 50,
+      redOffset: 50,
+      greenOffset: 50,
+      blueOffset: 50,
       blueLight: monitor.isPrimary ? 0 : 30,
       autoBrightness: 0,
+      ecoMode: 0,
       powerMode: 0,
+      powerSave: 0,
       inputSource: 0x11,
+      volume: 50,
+      mute: 0,
     };
 
     return Object.entries(VCP_CODES).map(([settingId, vcpInfo]) => ({
@@ -451,6 +465,8 @@ $monitors | ConvertTo-Json -Depth 3
       type: vcpInfo.type,
       readable: true,
       writable: true,
+      category: vcpInfo.category,
+      description: vcpInfo.description,
     }));
   }
 

@@ -1,8 +1,8 @@
 {
   "name": "monitor-controller",
   "productName": "Monitor Controller",
-  "version": "1.0.0",
-  "description": "Universal monitor discovery and hardware control via DDC/CI - Adjust brightness, contrast, color temperature, and more on any monitor",
+  "version": "2.0.0",
+  "description": "Universal monitor discovery and hardware control via DDC/CI - Adjust brightness, contrast, color temperature, and more on any monitor. Enterprise-grade profiles, audit logging, and fleet management.",
   "main": ".webpack/main",
   "private": true,
   "scripts": {

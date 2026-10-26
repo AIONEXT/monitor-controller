@@ -7,6 +7,9 @@ import { PresetsPanel } from './components/PresetsPanel';
 import { UpdateBanner } from './components/UpdateBanner';
 import { ToastContainer, Toast } from './components/Toast';
 import { Icon } from './components/Icon';
+import { ProfileManager } from './components/ProfileManager';
+import { enterprise } from './services/enterprise-service';
+import type { MonitorProfile } from './monitor-types';
 import type { UpdateInfo, UpdateProgress } from './types/electron-api';
 
 const PRESETS = [
@@ -149,11 +152,40 @@ export const App: React.FC = () => {
       const updated = await api.setMonitorSetting(selectedMonitorId, settingId, value);
       if (updated) {
         setSettings(prev => prev.map(s => s.id === settingId ? updated : s));
+        // Audit log (fire-and-forget; respects enterprise config)
+        const cfg = enterprise.getConfigSync();
+        if (cfg.enableAuditLogging) {
+          const oldValue = settings.find(s => s.id === settingId)?.value ?? value;
+          enterprise.logChange({
+            monitorId: selectedMonitorId,
+            settingId,
+            oldValue,
+            newValue: updated.value,
+            action: 'set',
+          }).catch(() => { /* non-fatal */ });
+        }
       }
       setActivePreset('custom');
     } catch (error) {
       console.error('Failed to update setting:', error);
       showToast(`Failed to update ${settingId}`, 'error');
+    }
+  };
+
+  const handleApplyProfile = async (profile: MonitorProfile) => {
+    await enterprise.applyProfile(profile.id, []);
+    if (selectedMonitorId) {
+      await loadSettings(selectedMonitorId);
+    }
+    const cfg = enterprise.getConfigSync();
+    if (cfg.enableAuditLogging) {
+      enterprise.logChange({
+        monitorId: '*',
+        settingId: '*',
+        oldValue: -1,
+        newValue: -1,
+        action: 'profile_apply',
+      }).catch(() => { /* non-fatal */ });
     }
   };
 
@@ -273,6 +305,12 @@ export const App: React.FC = () => {
             presets={PRESETS}
             activePreset={activePreset}
             onApply={applyPreset}
+          />
+
+          <ProfileManager
+            monitors={monitors}
+            onApply={handleApplyProfile}
+            showToast={showToast}
           />
         </aside>
         

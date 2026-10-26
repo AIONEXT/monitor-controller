@@ -312,6 +312,8 @@ export class LinuxMonitorBackend {
         step: vcpInfo.defaultStep,
         vcpCode: vcpInfo.code,
         type: vcpInfo.type,
+        category: vcpInfo.category,
+        description: vcpInfo.description,
       };
     }
     return caps;
@@ -322,14 +324,26 @@ export class LinuxMonitorBackend {
       brightness: displayIndex === 0 ? 75 : 60,
       contrast: displayIndex === 0 ? 70 : 75,
       sharpness: 50,
+      blackLevel: 50,
+      whiteLevel: 50,
       colorTemp: 6500,
       gamma: 22,
       hue: 50,
       saturation: displayIndex === 0 ? 50 : 55,
+      redGain: 50,
+      greenGain: 50,
+      blueGain: 50,
+      redOffset: 50,
+      greenOffset: 50,
+      blueOffset: 50,
       blueLight: displayIndex === 0 ? 0 : 30,
       autoBrightness: 0,
+      ecoMode: 0,
       powerMode: 0,
+      powerSave: 0,
       inputSource: 0x11,
+      volume: 50,
+      mute: 0,
     };
 
     return Object.entries(VCP_CODES).map(([settingId, vcpInfo]) => ({
@@ -345,6 +359,8 @@ export class LinuxMonitorBackend {
       type: vcpInfo.type,
       readable: true,
       writable: true,
+      category: vcpInfo.category,
+      description: vcpInfo.description,
     }));
   }
 

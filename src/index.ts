@@ -3,6 +3,7 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import { MonitorManager } from './monitor-manager';
 import { setupAutoUpdater } from './auto-updater';
+import { registerEnterpriseHandlers } from './enterprise-handlers';
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -16,6 +17,8 @@ autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
 const monitorManager = new MonitorManager();
+
+registerEnterpriseHandlers(monitorManager);
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 if (require('electron-squirrel-startup')) {
