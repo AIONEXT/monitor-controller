@@ -1,0 +1,44 @@
+/* Universal per-brand calibration list */
+.brand-calibration-panel {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+}
+
+.calibration-list {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.calibration-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.calibration-apply {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 10px;
+  color: inherit;
+  text-align: left;
+  background: var(--surface-color, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.calibration-apply:hover {
+  border-color: var(--accent-color, #7c6cff);
+}
+
+.calibration-apply small,
+.brand-calibration-panel .hint {
+  color: var(--muted-color, #9292a3);
+  font-size: 11px;
+}

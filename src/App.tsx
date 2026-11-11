@@ -8,24 +8,11 @@ import { UpdateBanner } from './components/UpdateBanner';
 import { ToastContainer, Toast } from './components/Toast';
 import { Icon } from './components/Icon';
 import { ProfileManager } from './components/ProfileManager';
+import { BrandCalibrationPanel } from './components/BrandCalibrationPanel';
 import { enterprise } from './services/enterprise-service';
+import { resolveCalibration, resolvePreset, UNIVERSAL_PRESETS, type BrandCalibrationProfile } from './services/universal-control';
 import type { MonitorProfile } from './monitor-types';
 import type { UpdateInfo, UpdateProgress } from './types/electron-api';
-
-const PRESETS = [
-  { id: 'standard', name: 'Standard', icon: 'monitor', description: 'Balanced settings for daily use' },
-  { id: 'gaming', name: 'Gaming', icon: 'gamepad', description: 'High brightness, low latency' },
-  { id: 'movie', name: 'Movie', icon: 'film', description: 'Cinematic color and contrast' },
-  { id: 'reading', name: 'Reading', icon: 'book', description: 'Low blue light, comfortable brightness' },
-  { id: 'custom', name: 'Custom', icon: 'sliders', description: 'Your personalized settings' },
-];
-
-const PRESET_VALUES: Record<string, Partial<Record<string, number>>> = {
-  standard: { brightness: 75, contrast: 70, sharpness: 50, colorTemp: 6500, gamma: 22, blueLight: 0 },
-  gaming: { brightness: 85, contrast: 80, sharpness: 60, colorTemp: 6500, gamma: 22, blueLight: 0 },
-  movie: { brightness: 60, contrast: 85, sharpness: 40, colorTemp: 6500, gamma: 24, blueLight: 10 },
-  reading: { brightness: 40, contrast: 60, sharpness: 55, colorTemp: 5500, gamma: 22, blueLight: 40 },
-};
 
 interface ToastMessage {
   id: number;
@@ -50,26 +37,23 @@ export const App: React.FC = () => {
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = ++toastIdRef.current;
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((toast) => toast.id !== id)), 4000);
   }, []);
 
   const loadMonitors = useCallback(async (force = false) => {
     setIsLoading(true);
     setRefreshing(true);
     try {
-      const api = window.electronAPI;
-      const monitorsData = await api.getMonitors();
+      const monitorsData = await window.electronAPI.getMonitors();
       setMonitors(monitorsData);
-      
       if (monitorsData.length > 0) {
-        const primary = monitorsData.find((m: Monitor) => m.isPrimary) || monitorsData[0];
-        if (!selectedMonitorId || force) {
+        const primary = monitorsData.find((monitor) => monitor.isPrimary) || monitorsData[0];
+        if (!selectedMonitorId || force || !monitorsData.some((monitor) => monitor.id === selectedMonitorId)) {
           setSelectedMonitorId(primary.id);
         }
       } else {
+        setSelectedMonitorId('');
         showToast('No monitors detected. Enable DDC/CI in monitor OSD.', 'info');
       }
     } catch (error) {
@@ -83,10 +67,9 @@ export const App: React.FC = () => {
 
   const loadSettings = useCallback(async (monitorId: string) => {
     try {
-      const api = window.electronAPI;
       const [settingsData, capsData] = await Promise.all([
-        api.getMonitorSettings(monitorId),
-        api.getMonitorCapabilities(monitorId),
+        window.electronAPI.getMonitorSettings(monitorId),
+        window.electronAPI.getMonitorCapabilities(monitorId),
       ]);
       setSettings(settingsData);
       setCapabilities(capsData);
@@ -100,10 +83,7 @@ export const App: React.FC = () => {
     window.electronAPI.getAppVersion().then(setAppVersion).catch(() => setAppVersion('1.0.0'));
   }, []);
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadMonitors(true);
-  }, [loadMonitors]);
+  const handleRefresh = useCallback(async () => loadMonitors(true), [loadMonitors]);
 
   useEffect(() => {
     loadMonitors();
@@ -113,30 +93,24 @@ export const App: React.FC = () => {
     if (selectedMonitorId) {
       loadSettings(selectedMonitorId);
       setActivePreset('custom');
+    } else {
+      setSettings([]);
+      setCapabilities({});
     }
   }, [selectedMonitorId, loadSettings]);
 
   useEffect(() => {
     const api = window.electronAPI;
-    
     const unsubUpdateAvailable = api.onUpdateAvailable((info: UpdateInfo) => {
       setUpdateInfo(info);
       setShowUpdateBanner(true);
     });
-    
     const unsubUpdateDownloaded = api.onUpdateDownloaded((info: UpdateInfo) => {
       setUpdateInfo(info);
       setShowUpdateBanner(true);
     });
-    
-    const unsubUpdateError = api.onUpdateError((error: { message: string }) => {
-      showToast(`Update error: ${error.message}`, 'error');
-    });
-    
-    const unsubUpdateProgress = api.onUpdateProgress((progress: UpdateProgress) => {
-      setUpdateProgress(progress);
-    });
-
+    const unsubUpdateError = api.onUpdateError((error: { message: string }) => showToast(`Update error: ${error.message}`, 'error'));
+    const unsubUpdateProgress = api.onUpdateProgress((progress: UpdateProgress) => setUpdateProgress(progress));
     return () => {
       unsubUpdateAvailable();
       unsubUpdateDownloaded();
@@ -148,21 +122,13 @@ export const App: React.FC = () => {
   const handleSettingChange = async (settingId: string, value: number) => {
     if (!selectedMonitorId) return;
     try {
-      const api = window.electronAPI;
-      const updated = await api.setMonitorSetting(selectedMonitorId, settingId, value);
+      const updated = await window.electronAPI.setMonitorSetting(selectedMonitorId, settingId, value);
       if (updated) {
-        setSettings(prev => prev.map(s => s.id === settingId ? updated : s));
-        // Audit log (fire-and-forget; respects enterprise config)
+        setSettings((prev) => prev.map((setting) => setting.id === settingId ? updated : setting));
         const cfg = enterprise.getConfigSync();
         if (cfg.enableAuditLogging) {
-          const oldValue = settings.find(s => s.id === settingId)?.value ?? value;
-          enterprise.logChange({
-            monitorId: selectedMonitorId,
-            settingId,
-            oldValue,
-            newValue: updated.value,
-            action: 'set',
-          }).catch(() => { /* non-fatal */ });
+          const oldValue = settings.find((setting) => setting.id === settingId)?.value ?? value;
+          enterprise.logChange({ monitorId: selectedMonitorId, settingId, oldValue, newValue: updated.value, action: 'set' }).catch(() => { /* non-fatal */ });
         }
       }
       setActivePreset('custom');
@@ -172,20 +138,30 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleApplyProfile = async (profile: MonitorProfile) => {
-    await enterprise.applyProfile(profile.id, []);
-    if (selectedMonitorId) {
+  const applyValues = async (entries: Array<{ settingId: string; value: number }>, successMessage: string) => {
+    if (!selectedMonitorId || entries.length === 0) {
+      showToast('This monitor does not report any controls supported by this preset/profile', 'info');
+      return;
+    }
+    try {
+      for (const entry of entries) {
+        await window.electronAPI.setMonitorSetting(selectedMonitorId, entry.settingId, entry.value);
+      }
+      await loadSettings(selectedMonitorId);
+      showToast(successMessage, 'success');
+    } catch (error) {
+      console.error('Failed to apply monitor values:', error);
+      showToast('Some monitor settings could not be applied', 'error');
       await loadSettings(selectedMonitorId);
     }
+  };
+
+  const handleApplyProfile = async (profile: MonitorProfile) => {
+    await enterprise.applyProfile(profile.id, []);
+    if (selectedMonitorId) await loadSettings(selectedMonitorId);
     const cfg = enterprise.getConfigSync();
     if (cfg.enableAuditLogging) {
-      enterprise.logChange({
-        monitorId: '*',
-        settingId: '*',
-        oldValue: -1,
-        newValue: -1,
-        action: 'profile_apply',
-      }).catch(() => { /* non-fatal */ });
+      enterprise.logChange({ monitorId: '*', settingId: '*', oldValue: -1, newValue: -1, action: 'profile_apply' }).catch(() => { /* non-fatal */ });
     }
   };
 
@@ -194,30 +170,24 @@ export const App: React.FC = () => {
       setActivePreset(presetId);
       return;
     }
-    const values = PRESET_VALUES[presetId];
-    if (!values) return;
+    const monitor = monitors.find((candidate) => candidate.id === selectedMonitorId);
+    if (!monitor) return;
+    const entries = resolvePreset(monitor, settings, presetId);
+    await applyValues(entries, `Applied ${UNIVERSAL_PRESETS.find((preset) => preset.id === presetId)?.name ?? presetId} preset`);
+    setActivePreset(presetId);
+  };
 
-    try {
-      const api = window.electronAPI;
-      for (const [settingId, value] of Object.entries(values)) {
-        if (value !== undefined) {
-          await api.setMonitorSetting(selectedMonitorId, settingId, value);
-        }
-      }
-      await loadSettings(selectedMonitorId);
-      setActivePreset(presetId);
-      showToast(`Applied ${presetId} preset`, 'success');
-    } catch (error) {
-      console.error('Failed to apply preset:', error);
-      showToast('Failed to apply preset', 'error');
-    }
+  const applyCalibration = async (profile: BrandCalibrationProfile) => {
+    const monitor = monitors.find((candidate) => candidate.id === selectedMonitorId);
+    if (!monitor) return;
+    await applyValues(resolveCalibration(monitor, settings, profile), `Applied ${profile.name}`);
+    setActivePreset('custom');
   };
 
   const handleResetDefaults = async () => {
     if (!selectedMonitorId) return;
     try {
-      const api = window.electronAPI;
-      await api.resetMonitorSettings(selectedMonitorId);
+      await window.electronAPI.resetMonitorSettings(selectedMonitorId);
       await loadSettings(selectedMonitorId);
       setActivePreset('custom');
       showToast('Reset to defaults', 'success');
@@ -228,116 +198,45 @@ export const App: React.FC = () => {
   };
 
   const handleDownloadUpdate = async () => {
-    try {
-      const api = window.electronAPI;
-      await api.downloadUpdate();
-    } catch {
-      showToast('Failed to download update', 'error');
-    }
+    try { await window.electronAPI.downloadUpdate(); } catch { showToast('Failed to download update', 'error'); }
   };
 
   const handleInstallUpdate = async () => {
-    try {
-      const api = window.electronAPI;
-      await api.quitAndInstall();
-    } catch {
-      showToast('Failed to install update', 'error');
-    }
+    try { await window.electronAPI.quitAndInstall(); } catch { showToast('Failed to install update', 'error'); }
   };
 
-  const selectedMonitor = monitors.find(m => m.id === selectedMonitorId);
+  const selectedMonitor = monitors.find((monitor) => monitor.id === selectedMonitorId);
 
   if (isLoading) {
-    return (
-      <div className="app loading">
-        <div className="loader">
-          <div className="loader-ring"></div>
-          <span>Detecting monitors...</span>
-        </div>
-      </div>
-    );
+    return <div className="app loading"><div className="loader"><div className="loader-ring" /><span>Detecting monitors...</span></div></div>;
   }
 
   return (
     <div className="app">
-      <Header
-        version={appVersion}
-        onMinimize={() => window.electronAPI.windowMinimize()}
-        onMaximize={() => window.electronAPI.windowMaximize()}
-        onClose={() => window.electronAPI.windowClose()}
-      />
-      
-      {showUpdateBanner && updateInfo && (
-        <UpdateBanner
-          info={updateInfo}
-          progress={updateProgress}
-          onDownload={handleDownloadUpdate}
-          onInstall={handleInstallUpdate}
-          onDismiss={() => setShowUpdateBanner(false)}
-        />
-      )}
-
+      <Header version={appVersion} onMinimize={() => window.electronAPI.windowMinimize()} onMaximize={() => window.electronAPI.windowMaximize()} onClose={() => window.electronAPI.windowClose()} />
+      {showUpdateBanner && updateInfo && <UpdateBanner info={updateInfo} progress={updateProgress} onDownload={handleDownloadUpdate} onInstall={handleInstallUpdate} onDismiss={() => setShowUpdateBanner(false)} />}
       <main className="main">
         <aside className="sidebar">
           <div className="sidebar-header">
-            <h3 className="section-title">
-              <Icon name="monitor" size={16} />
-              Monitors
-            </h3>
-            <button
-              className="icon-btn"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              aria-label="Refresh monitors"
-              title="Refresh monitors"
-            >
-              <Icon name={refreshing ? 'refresh' : 'refresh'} size={16} className={refreshing ? 'spinning' : ''} />
+            <h3 className="section-title"><Icon name="monitor" size={16} /> Monitors</h3>
+            <button className="icon-btn" onClick={handleRefresh} disabled={refreshing} aria-label="Refresh monitors" title="Refresh monitors">
+              <Icon name="refresh" size={16} className={refreshing ? 'spinning' : ''} />
             </button>
           </div>
-          
-          <MonitorSelector
-            monitors={monitors}
-            selectedId={selectedMonitorId}
-            onSelect={setSelectedMonitorId}
-          />
-          
-          <PresetsPanel
-            presets={PRESETS}
-            activePreset={activePreset}
-            onApply={applyPreset}
-          />
-
-          <ProfileManager
-            monitors={monitors}
-            onApply={handleApplyProfile}
-            showToast={showToast}
-          />
+          <MonitorSelector monitors={monitors} selectedId={selectedMonitorId} onSelect={setSelectedMonitorId} />
+          <PresetsPanel presets={UNIVERSAL_PRESETS.map(({ values: _values, ...preset }) => preset)} activePreset={activePreset} onApply={applyPreset} />
+          {selectedMonitor && <BrandCalibrationPanel monitor={selectedMonitor} settings={settings} onApply={applyCalibration} showToast={showToast} />}
+          <ProfileManager monitors={monitors} onApply={handleApplyProfile} showToast={showToast} />
         </aside>
-        
         <section className="content">
           {selectedMonitor ? (
-            <SettingsPanel
-              monitor={selectedMonitor}
-              settings={settings}
-              capabilities={capabilities}
-              onChange={handleSettingChange}
-              onReset={handleResetDefaults}
-            />
+            <SettingsPanel monitor={selectedMonitor} settings={settings} capabilities={capabilities} onChange={handleSettingChange} onReset={handleResetDefaults} />
           ) : (
-            <div className="empty-state">
-              <Icon name="monitor" size={64} />
-              <h2>No Monitor Selected</h2>
-              <p>Select a monitor from the sidebar to adjust its settings</p>
-            </div>
+            <div className="empty-state"><Icon name="monitor" size={64} /><h2>No Monitor Selected</h2><p>Select a monitor from the sidebar to adjust its settings</p></div>
           )}
         </section>
       </main>
-
-      <ToastContainer>
-        {toasts.map(toast => (
-          <Toast key={toast.id} message={toast.message} type={toast.type} />
-        ))}
-      </ToastContainer>
+      <ToastContainer>{toasts.map((toast) => <Toast key={toast.id} message={toast.message} type={toast.type} />)}</ToastContainer>
     </div>
   );
 };
