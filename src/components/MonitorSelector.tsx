@@ -26,7 +26,7 @@ export const MonitorSelector: React.FC<MonitorSelectorProps> = ({ monitors, sele
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
     let newIndex = focusedIndex;
-    
+
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
@@ -52,18 +52,13 @@ export const MonitorSelector: React.FC<MonitorSelectorProps> = ({ monitors, sele
       default:
         return;
     }
-    
+
     setFocusedIndex(newIndex);
     itemRefs.current[newIndex]?.focus();
   };
 
-  const handleFocus = (index: number) => {
-    setFocusedIndex(index);
-  };
-
-  const handleBlur = () => {
-    setFocusedIndex(-1);
-  };
+  const handleFocus = (index: number) => setFocusedIndex(index);
+  const handleBlur = () => setFocusedIndex(-1);
 
   return (
     <div className="monitor-selector">
@@ -79,12 +74,13 @@ export const MonitorSelector: React.FC<MonitorSelectorProps> = ({ monitors, sele
             onBlur={handleBlur}
             role="option"
             aria-selected={monitor.id === selectedId}
-            aria-label={`${monitor.name}${monitor.isPrimary ? ' (Primary)' : ''}`}
+            aria-label={`${monitor.name}${monitor.brand ? `, ${monitor.brand}` : ''}${monitor.isPrimary ? ' (Primary)' : ''}`}
             tabIndex={monitor.id === selectedId ? 0 : -1}
           >
             <div className="monitor-info">
               <div className="monitor-name-row">
                 <span className="monitor-name">{monitor.name}</span>
+                {monitor.brand && <span className="primary-badge">{monitor.brand}</span>}
                 {monitor.isPrimary && <span className="primary-badge">Primary</span>}
               </div>
               <div className="monitor-details">
@@ -92,7 +88,7 @@ export const MonitorSelector: React.FC<MonitorSelectorProps> = ({ monitors, sele
                 {monitor.diagonalInches && (
                   <>
                     <span className="separator">•</span>
-                    <span>{monitor.diagonalInches}"</span>
+                    <span>{monitor.diagonalInches}&quot;</span>
                   </>
                 )}
               </div>

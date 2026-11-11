@@ -1,27 +1,42 @@
 import { Monitor, MonitorSetting, MonitorCapabilities } from './monitor-types';
 import { getMonitorBackend, resetBackend } from './hardware/factory';
+import { withBrandMetadata } from './hardware/brand-registry';
 
 export class MonitorManager {
   private backend = getMonitorBackend();
   private monitorCache: Monitor[] | null = null;
   private cacheTimestamp = 0;
+  private monitorRequest: Promise<Monitor[]> | null = null;
   private readonly CACHE_TTL = 30000;
 
   async getMonitors(forceRefresh = false): Promise<Monitor[]> {
     const now = Date.now();
-    
-    if (!forceRefresh && this.monitorCache && (now - this.cacheTimestamp) < this.CACHE_TTL) {
-      return this.monitorCache;
+
+    if (!forceRefresh && this.monitorCache && now - this.cacheTimestamp < this.CACHE_TTL) {
+      return this.cloneMonitors(this.monitorCache);
     }
 
+    // Coalesce concurrent UI requests so one refresh does not trigger multiple
+    // expensive hardware scans (especially costly capability probes).
+    if (this.monitorRequest) {
+      return this.cloneMonitors(await this.monitorRequest);
+    }
+
+    const request = this.backend.getMonitors()
+      .then((monitors) => monitors.map(withBrandMetadata));
+    this.monitorRequest = request;
+
     try {
-      this.monitorCache = await this.backend.getMonitors();
-      this.cacheTimestamp = now;
-      return this.monitorCache;
+      const monitors = await request;
+      this.monitorCache = monitors;
+      this.cacheTimestamp = Date.now();
+      return this.cloneMonitors(monitors);
     } catch (error) {
       console.error('Failed to get monitors:', error);
-      if (this.monitorCache) return this.monitorCache;
+      if (this.monitorCache) return this.cloneMonitors(this.monitorCache);
       throw error;
+    } finally {
+      if (this.monitorRequest === request) this.monitorRequest = null;
     }
   }
 
@@ -37,9 +52,7 @@ export class MonitorManager {
   async setSetting(monitorId: string, settingId: string, value: number): Promise<MonitorSetting | null> {
     try {
       const result = await this.backend.setSetting(monitorId, settingId, value);
-      if (result) {
-        this.invalidateCache();
-      }
+      if (result) this.invalidateCache();
       return result;
     } catch (error) {
       console.error('Failed to set monitor setting:', error);
@@ -75,6 +88,16 @@ export class MonitorManager {
     resetBackend();
     this.backend = getMonitorBackend();
     this.invalidateCache();
+  }
+
+  private cloneMonitors(monitors: Monitor[]): Monitor[] {
+    return monitors.map((monitor) => ({
+      ...monitor,
+      capabilities: Object.fromEntries(
+        Object.entries(monitor.capabilities).map(([id, capability]) => [id, { ...capability }]),
+      ),
+      settings: monitor.settings.map((setting) => ({ ...setting })),
+    }));
   }
 
   private invalidateCache(): void {
