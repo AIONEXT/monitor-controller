@@ -1,401 +1,197 @@
-import { Monitor, MonitorSetting, MonitorCapabilities, VCP_CODES } from '../monitor-types';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import type { Monitor, MonitorCapabilities, MonitorSetting } from '../monitor-types';
+import { VCP_CODES } from '../monitor-types';
 
 const execFileAsync = promisify(execFile);
 
+interface DdcDetectedDisplay {
+  display?: number;
+  bus_number?: number;
+  i2c_bus?: string;
+  model?: string;
+  manufacturer?: string;
+  mfg_id?: string;
+  serial?: string;
+  width_mm?: number;
+  height_mm?: number;
+}
+
+interface DdcVcpValue {
+  code?: number | string;
+  current?: number | string;
+  current_value?: number | string;
+  max?: number | string;
+  maximum?: number | string;
+  max_value?: number | string;
+}
+
+function parseJson(stdout: string): unknown {
+  try { return JSON.parse(stdout); } catch { return undefined; }
+}
+
+function asNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function displayList(value: unknown): DdcDetectedDisplay[] {
+  if (Array.isArray(value)) return value as DdcDetectedDisplay[];
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    for (const candidate of [record.displays, record.display, record.detected_displays]) {
+      if (Array.isArray(candidate)) return candidate as DdcDetectedDisplay[];
+    }
+  }
+  return [];
+}
+
+function vcpList(value: unknown): DdcVcpValue[] {
+  if (Array.isArray(value)) return value as DdcVcpValue[];
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    for (const candidate of [record.vcp, record.values, record.features, record.result]) {
+      if (Array.isArray(candidate)) return candidate as DdcVcpValue[];
+    }
+    if ('current' in record || 'current_value' in record) return [record as DdcVcpValue];
+  }
+  return [];
+}
+
+function validPhysicalSize(value: unknown): number | undefined {
+  const size = asNumber(value);
+  return size !== undefined && size > 0 && size < 3000 ? size : undefined;
+}
+
 export class LinuxMonitorBackend {
-  private ddcutilAvailable: boolean | null = null;
-  private useMockMode = false;
-  private mockMonitors: Monitor[] | null = null;
+  private monitorById = new Map<string, { display: number; monitor: Monitor }>();
+  private monitorCache: Monitor[] | null = null;
 
   async getMonitors(): Promise<Monitor[]> {
-    if (this.useMockMode) {
-      return this.getMockMonitors();
-    }
-
-    if (!(await this.isDDCUtilAvailable())) {
-      console.warn('ddcutil not available, enabling mock mode');
-      this.useMockMode = true;
-      return this.getMockMonitors();
-    }
-
-    try {
-      const monitors = await this.enumerateMonitors();
-      if (monitors.length === 0) {
-        console.warn('No monitors detected via ddcutil, enabling mock mode');
-        this.useMockMode = true;
-        return this.getMockMonitors();
-      }
-      return monitors;
-    } catch (error) {
-      console.error('Linux monitor enumeration failed, enabling mock mode:', error);
-      this.useMockMode = true;
-      return this.getMockMonitors();
-    }
-  }
-
-  private async isDDCUtilAvailable(): Promise<boolean> {
-    if (this.ddcutilAvailable !== null) return this.ddcutilAvailable;
-
-    try {
-      await execFileAsync('ddcutil', ['--version'], { timeout: 3000 });
-      this.ddcutilAvailable = true;
-    } catch {
-      this.ddcutilAvailable = false;
-    }
-    return this.ddcutilAvailable;
-  }
-
-  private async enumerateMonitors(): Promise<Monitor[]> {
-    const { stdout } = await execFileAsync('ddcutil', ['detect', '--brief', '--json'], {
-      timeout: 10000,
-      encoding: 'utf8',
-    });
-
-    const detected = JSON.parse(stdout);
+    const { stdout } = await execFileAsync('ddcutil', ['detect', '--brief', '--json'], { timeout: 15000, encoding: 'utf8' });
+    const detected = displayList(parseJson(stdout));
     const monitors: Monitor[] = [];
+    this.monitorById.clear();
 
-    for (const [index, det] of detected.entries()) {
-      const displayNum = det.display || index + 1;
-      const caps = await this.probeCapabilities(displayNum);
-      const settings = this.createSettingsFromCapabilities(displayNum, caps);
-
-      monitors.push({
-        id: `monitor-${displayNum}`,
-        name: det.model || `Monitor ${displayNum}`,
-        manufacturer: det.manufacturer || 'Unknown',
-        model: det.model || 'Unknown',
-        serialNumber: det.serial || `SN-${displayNum}`,
-        displayIndex: displayNum - 1,
-        isPrimary: index === 0,
-        widthMm: det.width_mm,
-        heightMm: det.height_mm,
-        diagonalInches: det.width_mm && det.height_mm
-          ? Math.round(Math.sqrt(det.width_mm ** 2 + det.height_mm ** 2) / 25.4 * 10) / 10
-          : undefined,
-        capabilities: caps,
-        settings,
-      });
+    for (const [index, item] of detected.entries()) {
+      const display = asNumber(item.display) ?? index + 1;
+      if (!Number.isInteger(display) || display < 1) continue;
+      const provisional = this.createMonitor(item, index, display);
+      const { capabilities, settings } = await this.probeMonitor(display);
+      const monitor: Monitor = { ...provisional, capabilities, settings, ddcSupported: Object.values(capabilities).some((capability) => capability.supported) };
+      monitors.push(monitor);
+      this.monitorById.set(monitor.id, { display, monitor });
     }
-
-    return monitors.length > 0 ? monitors : this.getMockMonitors();
+    this.monitorCache = monitors;
+    return monitors;
   }
 
-  private async probeCapabilities(displayNum: number): Promise<MonitorCapabilities> {
-    const capabilities: MonitorCapabilities = {};
-
-    for (const [settingId, vcpInfo] of Object.entries(VCP_CODES)) {
-      try {
-        const { stdout } = await execFileAsync('ddcutil', [
-          'getvcp', vcpInfo.code.toString(16).toUpperCase(),
-          '--display', displayNum.toString(),
-          '--brief', '--json'
-        ], { timeout: 5000, encoding: 'utf8' });
-
-        const result = JSON.parse(stdout);
-        if (result && result[0]) {
-          const vcp = result[0];
-          capabilities[settingId] = {
-            supported: true,
-            min: vcp.min || vcpInfo.defaultMin,
-            max: vcp.max || vcpInfo.defaultMax,
-            step: vcpInfo.defaultStep,
-            vcpCode: vcpInfo.code,
-            type: vcpInfo.type,
-          };
-        } else {
-          capabilities[settingId] = this.getUnsupportedCapability(vcpInfo);
-        }
-      } catch {
-        capabilities[settingId] = this.getUnsupportedCapability(vcpInfo);
-      }
-    }
-
-    return capabilities;
-  }
-
-  private getUnsupportedCapability(vcpInfo: typeof VCP_CODES[string]): MonitorCapabilities[string] {
+  private createMonitor(item: DdcDetectedDisplay, index: number, display: number): Monitor {
+    const widthMm = validPhysicalSize(item.width_mm);
+    const heightMm = validPhysicalSize(item.height_mm);
+    const manufacturer = item.manufacturer || item.mfg_id || 'Unknown';
+    const model = item.model || 'Unknown';
+    const id = `ddc-${display}-${String(item.serial || model).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+    const diagonal = widthMm && heightMm ? Math.sqrt(widthMm ** 2 + heightMm ** 2) / 25.4 : undefined;
     return {
-      supported: false,
-      min: vcpInfo.defaultMin,
-      max: vcpInfo.defaultMax,
-      step: vcpInfo.defaultStep,
-      vcpCode: vcpInfo.code,
-      type: vcpInfo.type,
+      id, name: model === 'Unknown' ? `Monitor ${display}` : model, manufacturer, model,
+      serialNumber: item.serial || 'Unknown', displayIndex: index, isPrimary: index === 0,
+      widthMm, heightMm, diagonalInches: diagonal ? Math.round(diagonal * 10) / 10 : undefined,
+      capabilities: {}, settings: [], ddcSupported: true,
     };
   }
 
-  private createSettingsFromCapabilities(displayNum: number, capabilities: MonitorCapabilities): MonitorSetting[] {
+  private async probeMonitor(display: number): Promise<{ capabilities: MonitorCapabilities; settings: MonitorSetting[] }> {
+    const capabilities: MonitorCapabilities = {};
     const settings: MonitorSetting[] = [];
-
-    for (const [settingId, cap] of Object.entries(capabilities)) {
-      const vcpInfo = VCP_CODES[settingId];
-      if (!vcpInfo || !cap.supported) continue;
-
-      settings.push({
-        id: settingId,
-        name: vcpInfo.name,
-        value: Math.round((cap.min + cap.max) / 2),
-        min: cap.min,
-        max: cap.max,
-        step: cap.step,
-        unit: vcpInfo.unit,
-        icon: vcpInfo.icon,
-        vcpCode: cap.vcpCode,
-        type: cap.type,
-        readable: true,
-        writable: true,
-      });
+    // ddcutil transactions are serialized because concurrent I2C queries can
+    // contend on adapters and produce transient false negatives.
+    for (const [id, info] of Object.entries(VCP_CODES)) {
+      try {
+        const result = await this.readVcp(display, info.code, 5000);
+        if (!result) continue;
+        const max = asNumber(result.max ?? result.maximum ?? result.max_value) ?? info.defaultMax;
+        const min = info.defaultMin;
+        const current = asNumber(result.current ?? result.current_value);
+        if (max < min) continue;
+        capabilities[id] = { supported: true, min, max, step: info.defaultStep, vcpCode: info.code, type: info.type, category: info.category, description: info.description };
+        settings.push({
+          id, name: info.name, value: current === undefined ? min + Math.round((max - min) / 2) : Math.max(min, Math.min(max, current)),
+          min, max, step: info.defaultStep, unit: info.unit, icon: info.icon, vcpCode: info.code,
+          type: info.type, readable: current !== undefined, writable: true, category: info.category, description: info.description,
+        });
+      } catch {
+        capabilities[id] = { supported: false, min: info.defaultMin, max: info.defaultMax, step: info.defaultStep, vcpCode: info.code, type: info.type, category: info.category, description: info.description };
+      }
     }
+    return { capabilities, settings };
+  }
 
-    return settings.length > 0 ? settings : this.getMockSettings(displayNum);
+  private async readVcp(display: number, code: number, timeout: number): Promise<DdcVcpValue | undefined> {
+    const { stdout } = await execFileAsync('ddcutil', ['getvcp', code.toString(16).toUpperCase(), '--display', String(display), '--brief', '--json'], { timeout, encoding: 'utf8' });
+    return vcpList(parseJson(stdout)).find((item) => {
+      const reportedCode = asNumber(item.code);
+      return reportedCode === undefined || reportedCode === code;
+    });
   }
 
   async getSettings(monitorId: string): Promise<MonitorSetting[]> {
-    if (this.useMockMode) {
-      const mockMonitors = this.getMockMonitors();
-      const monitor = mockMonitors.find(m => m.id === monitorId);
-      return monitor?.settings || [];
-    }
-
-    const monitors = await this.getMonitors();
-    const monitor = monitors.find(m => m.id === monitorId);
-    if (!monitor) return [];
-
-    const updatedSettings = await Promise.all(
-      monitor.settings.map(async (setting) => {
-        if (!setting.vcpCode) return setting;
-        try {
-          const value = await this.getVCPValue(monitor.displayIndex + 1, setting.vcpCode);
-          return { ...setting, value };
-        } catch {
-          return setting;
-        }
-      })
-    );
-
-    return updatedSettings;
-  }
-
-  private async getVCPValue(displayNum: number, vcpCode: number): Promise<number> {
-    const { stdout } = await execFileAsync('ddcutil', [
-      'getvcp', vcpCode.toString(16).toUpperCase(),
-      '--display', displayNum.toString(),
-      '--brief', '--json'
-    ], { timeout: 3000, encoding: 'utf8' });
-
-    const result = JSON.parse(stdout);
-    return result?.[0]?.current ?? 0;
+    const record = await this.findMonitor(monitorId);
+    if (!record) return [];
+    const settings = await Promise.all(record.monitor.settings.map(async (setting) => {
+      if (!setting.vcpCode || !setting.readable) return { ...setting };
+      try {
+        const value = await this.readVcp(record.display, setting.vcpCode, 4000);
+        const current = asNumber(value?.current ?? value?.current_value);
+        return current === undefined ? { ...setting } : { ...setting, value: Math.max(setting.min, Math.min(setting.max, current)) };
+      } catch { return { ...setting }; }
+    }));
+    return settings;
   }
 
   async setSetting(monitorId: string, settingId: string, value: number): Promise<MonitorSetting | null> {
-    if (this.useMockMode) {
-      return this.setMockSetting(monitorId, settingId, value);
-    }
-
-    const monitors = await this.getMonitors();
-    const monitor = monitors.find(m => m.id === monitorId);
-    if (!monitor) return null;
-
-    const setting = monitor.settings.find(s => s.id === settingId);
-    if (!setting || !setting.vcpCode) return null;
-
-    const clampedValue = Math.max(setting.min, Math.min(setting.max, value));
-    const displayNum = monitor.displayIndex + 1;
-
-    try {
-      await execFileAsync('ddcutil', [
-        'setvcp', setting.vcpCode.toString(16).toUpperCase(),
-        clampedValue.toString(),
-        '--display', displayNum.toString()
-      ], { timeout: 5000 });
-
-      setting.value = clampedValue;
-      return { ...setting };
-    } catch (error) {
-      console.error(`Failed to set ${settingId}:`, error);
-      this.useMockMode = true;
-      return this.setMockSetting(monitorId, settingId, value);
-    }
-  }
-
-  async resetToDefaults(monitorId: string): Promise<MonitorSetting[]> {
-    if (this.useMockMode) {
-      return this.resetMockToDefaults(monitorId);
-    }
-
-    const monitors = await this.getMonitors();
-    const monitor = monitors.find(m => m.id === monitorId);
-    if (!monitor) return [];
-
-    const resetSettings: MonitorSetting[] = [];
-    const displayNum = monitor.displayIndex + 1;
-
-    for (const setting of monitor.settings) {
-      if (setting.writable && setting.vcpCode) {
-        try {
-          const defaultValue = Math.round((setting.min + setting.max) / 2);
-          await execFileAsync('ddcutil', [
-            'setvcp', setting.vcpCode.toString(16).toUpperCase(),
-            defaultValue.toString(),
-            '--display', displayNum.toString()
-          ], { timeout: 5000 });
-          
-          setting.value = defaultValue;
-          resetSettings.push({ ...setting });
-        } catch {
-          // Continue with other settings
-        }
-      }
-    }
-
-    return resetSettings;
-  }
-
-  async getCapabilities(monitorId: string): Promise<MonitorCapabilities> {
-    if (this.useMockMode) {
-      const mockMonitors = this.getMockMonitors();
-      const monitor = mockMonitors.find(m => m.id === monitorId);
-      return monitor?.capabilities || {};
-    }
-
-    const monitors = await this.getMonitors();
-    const monitor = monitors.find(m => m.id === monitorId);
-    return monitor?.capabilities || {};
-  }
-
-  private getMockMonitors(): Monitor[] {
-    if (this.mockMonitors) return this.mockMonitors;
-
-    this.mockMonitors = [
-      {
-        id: 'monitor-0',
-        name: 'LG UltraGear 27" (Demo)',
-        manufacturer: 'LG',
-        model: '27GP95R',
-        serialNumber: 'LG27GP95R001',
-        displayIndex: 0,
-        isPrimary: true,
-        widthMm: 597,
-        heightMm: 336,
-        diagonalInches: 27,
-        capabilities: this.getMockCapabilities(),
-        settings: this.getMockSettings(0),
-      },
-      {
-        id: 'monitor-1',
-        name: 'Dell UltraSharp 32" (Demo)',
-        manufacturer: 'Dell',
-        model: 'U3223QE',
-        serialNumber: 'DELLU3223QE002',
-        displayIndex: 1,
-        isPrimary: false,
-        widthMm: 698,
-        heightMm: 393,
-        diagonalInches: 31.5,
-        capabilities: this.getMockCapabilities(),
-        settings: this.getMockSettings(1),
-      },
-    ];
-
-    return this.mockMonitors;
-  }
-
-  private getMockCapabilities(): MonitorCapabilities {
-    const caps: MonitorCapabilities = {};
-    for (const [settingId, vcpInfo] of Object.entries(VCP_CODES)) {
-      caps[settingId] = {
-        supported: true,
-        min: vcpInfo.defaultMin,
-        max: vcpInfo.defaultMax,
-        step: vcpInfo.defaultStep,
-        vcpCode: vcpInfo.code,
-        type: vcpInfo.type,
-        category: vcpInfo.category,
-        description: vcpInfo.description,
-      };
-    }
-    return caps;
-  }
-
-  private getMockSettings(displayIndex: number): MonitorSetting[] {
-    const baseValues: Record<string, number> = {
-      brightness: displayIndex === 0 ? 75 : 60,
-      contrast: displayIndex === 0 ? 70 : 75,
-      sharpness: 50,
-      blackLevel: 50,
-      whiteLevel: 50,
-      colorTemp: 6500,
-      gamma: 22,
-      hue: 50,
-      saturation: displayIndex === 0 ? 50 : 55,
-      redGain: 50,
-      greenGain: 50,
-      blueGain: 50,
-      redOffset: 50,
-      greenOffset: 50,
-      blueOffset: 50,
-      blueLight: displayIndex === 0 ? 0 : 30,
-      autoBrightness: 0,
-      ecoMode: 0,
-      powerMode: 0,
-      powerSave: 0,
-      inputSource: 0x11,
-      volume: 50,
-      mute: 0,
-    };
-
-    return Object.entries(VCP_CODES).map(([settingId, vcpInfo]) => ({
-      id: settingId,
-      name: vcpInfo.name,
-      value: baseValues[settingId] || Math.round((vcpInfo.defaultMin + vcpInfo.defaultMax) / 2),
-      min: vcpInfo.defaultMin,
-      max: vcpInfo.defaultMax,
-      step: vcpInfo.defaultStep,
-      unit: vcpInfo.unit,
-      icon: vcpInfo.icon,
-      vcpCode: vcpInfo.code,
-      type: vcpInfo.type,
-      readable: true,
-      writable: true,
-      category: vcpInfo.category,
-      description: vcpInfo.description,
-    }));
-  }
-
-  private async setMockSetting(monitorId: string, settingId: string, value: number): Promise<MonitorSetting | null> {
-    const mockMonitors = this.getMockMonitors();
-    const monitor = mockMonitors.find(m => m.id === monitorId);
-    if (!monitor) return null;
-
-    const setting = monitor.settings.find(s => s.id === settingId);
-    if (!setting) return null;
-
-    const clampedValue = Math.max(setting.min, Math.min(setting.max, value));
-    setting.value = clampedValue;
+    const record = await this.findMonitor(monitorId);
+    const setting = record?.monitor.settings.find((item) => item.id === settingId);
+    if (!record || !setting || !setting.writable || !setting.vcpCode || !Number.isFinite(value)) return null;
+    const clamped = Math.round(Math.max(setting.min, Math.min(setting.max, value)));
+    await execFileAsync('ddcutil', ['setvcp', setting.vcpCode.toString(16).toUpperCase(), String(clamped), '--display', String(record.display)], { timeout: 7000 });
+    setting.value = clamped;
     return { ...setting };
   }
 
-  private async resetMockToDefaults(monitorId: string): Promise<MonitorSetting[]> {
-    const mockMonitors = this.getMockMonitors();
-    const monitor = mockMonitors.find(m => m.id === monitorId);
-    if (!monitor) return [];
-
-    const resetSettings: MonitorSetting[] = [];
-    
-    for (const setting of monitor.settings) {
-      const defaultValue = Math.round((setting.min + setting.max) / 2);
-      setting.value = defaultValue;
-      resetSettings.push({ ...setting });
+  async resetToDefaults(monitorId: string): Promise<MonitorSetting[]> {
+    const record = await this.findMonitor(monitorId);
+    if (!record) return [];
+    const reset: MonitorSetting[] = [];
+    for (const setting of record.monitor.settings) {
+      if (!setting.writable || !setting.vcpCode) continue;
+      const value = Math.round((setting.min + setting.max) / 2);
+      try {
+        await execFileAsync('ddcutil', ['setvcp', setting.vcpCode.toString(16).toUpperCase(), String(value), '--display', String(record.display)], { timeout: 7000 });
+        setting.value = value;
+        reset.push({ ...setting });
+      } catch { /* Continue restoring other supported controls. */ }
     }
-
-    return resetSettings;
+    return reset;
   }
 
-  refresh(): void {
-    this.ddcutilAvailable = null;
-    this.useMockMode = false;
-    this.mockMonitors = null;
+  async getCapabilities(monitorId: string): Promise<MonitorCapabilities> {
+    const record = await this.findMonitor(monitorId);
+    return record ? Object.fromEntries(Object.entries(record.monitor.capabilities).map(([id, capability]) => [id, { ...capability }])) : {};
   }
+
+  private async findMonitor(monitorId: string): Promise<{ display: number; monitor: Monitor } | undefined> {
+    let record = this.monitorById.get(monitorId);
+    if (!record) {
+      await this.getMonitors();
+      record = this.monitorById.get(monitorId);
+    }
+    return record;
+  }
+
+  refresh(): void { this.monitorById.clear(); this.monitorCache = null; }
 }
