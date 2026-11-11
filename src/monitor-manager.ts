@@ -1,6 +1,7 @@
 import { Monitor, MonitorSetting, MonitorCapabilities } from './monitor-types';
 import { getMonitorBackend, resetBackend } from './hardware/factory';
 import { withBrandMetadata } from './hardware/brand-registry';
+import { normalizeMonitorVcp } from './hardware/vcp-normalizer';
 
 export class MonitorManager {
   private backend = getMonitorBackend();
@@ -11,21 +12,11 @@ export class MonitorManager {
 
   async getMonitors(forceRefresh = false): Promise<Monitor[]> {
     const now = Date.now();
+    if (!forceRefresh && this.monitorCache && now - this.cacheTimestamp < this.CACHE_TTL) return this.cloneMonitors(this.monitorCache);
+    if (this.monitorRequest) return this.cloneMonitors(await this.monitorRequest);
 
-    if (!forceRefresh && this.monitorCache && now - this.cacheTimestamp < this.CACHE_TTL) {
-      return this.cloneMonitors(this.monitorCache);
-    }
-
-    // Coalesce concurrent UI requests so one refresh does not trigger multiple
-    // expensive hardware scans (especially costly capability probes).
-    if (this.monitorRequest) {
-      return this.cloneMonitors(await this.monitorRequest);
-    }
-
-    const request = this.backend.getMonitors()
-      .then((monitors) => monitors.map(withBrandMetadata));
+    const request = this.backend.getMonitors().then((monitors) => monitors.map(normalizeMonitorVcp).map(withBrandMetadata));
     this.monitorRequest = request;
-
     try {
       const monitors = await request;
       this.monitorCache = monitors;
@@ -41,12 +32,8 @@ export class MonitorManager {
   }
 
   async getSettings(monitorId: string): Promise<MonitorSetting[]> {
-    try {
-      return await this.backend.getSettings(monitorId);
-    } catch (error) {
-      console.error('Failed to get monitor settings:', error);
-      throw error;
-    }
+    try { return await this.backend.getSettings(monitorId); }
+    catch (error) { console.error('Failed to get monitor settings:', error); throw error; }
   }
 
   async setSetting(monitorId: string, settingId: string, value: number): Promise<MonitorSetting | null> {
@@ -54,10 +41,7 @@ export class MonitorManager {
       const result = await this.backend.setSetting(monitorId, settingId, value);
       if (result) this.invalidateCache();
       return result;
-    } catch (error) {
-      console.error('Failed to set monitor setting:', error);
-      throw error;
-    }
+    } catch (error) { console.error('Failed to set monitor setting:', error); throw error; }
   }
 
   async resetToDefaults(monitorId: string): Promise<MonitorSetting[]> {
@@ -65,24 +49,15 @@ export class MonitorManager {
       const result = await this.backend.resetToDefaults(monitorId);
       this.invalidateCache();
       return result;
-    } catch (error) {
-      console.error('Failed to reset monitor settings:', error);
-      throw error;
-    }
+    } catch (error) { console.error('Failed to reset monitor settings:', error); throw error; }
   }
 
   async getCapabilities(monitorId: string): Promise<MonitorCapabilities> {
-    try {
-      return await this.backend.getCapabilities(monitorId);
-    } catch (error) {
-      console.error('Failed to get monitor capabilities:', error);
-      return {};
-    }
+    try { return await this.backend.getCapabilities(monitorId); }
+    catch (error) { console.error('Failed to get monitor capabilities:', error); return {}; }
   }
 
-  refreshMonitors(): void {
-    this.invalidateCache();
-  }
+  refreshMonitors(): void { this.invalidateCache(); }
 
   resetBackend(): void {
     resetBackend();
@@ -93,15 +68,10 @@ export class MonitorManager {
   private cloneMonitors(monitors: Monitor[]): Monitor[] {
     return monitors.map((monitor) => ({
       ...monitor,
-      capabilities: Object.fromEntries(
-        Object.entries(monitor.capabilities).map(([id, capability]) => [id, { ...capability }]),
-      ),
+      capabilities: Object.fromEntries(Object.entries(monitor.capabilities).map(([id, capability]) => [id, { ...capability }])),
       settings: monitor.settings.map((setting) => ({ ...setting })),
     }));
   }
 
-  private invalidateCache(): void {
-    this.monitorCache = null;
-    this.cacheTimestamp = 0;
-  }
+  private invalidateCache(): void { this.monitorCache = null; this.cacheTimestamp = 0; }
 }
