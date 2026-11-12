@@ -72,7 +72,18 @@ export class LinuxMonitorBackend {
   private monitorCache: Monitor[] | null = null;
 
   async getMonitors(): Promise<Monitor[]> {
-    const { stdout } = await execFileAsync('ddcutil', ['detect', '--brief', '--json'], { timeout: 15000, encoding: 'utf8' });
+    let stdout: string;
+    try {
+      ({ stdout } = await execFileAsync('ddcutil', ['detect', '--brief', '--json'], { timeout: 15000, encoding: 'utf8' }));
+    } catch (error) {
+      // Missing ddcutil, I2C permission problems, and no-adapter systems must
+      // result in a usable empty state rather than taking down renderer boot.
+      this.monitorById.clear();
+      this.monitorCache = [];
+      console.warn('Linux display discovery unavailable. Install/configure ddcutil and verify I2C permissions.', error);
+      return [];
+    }
+
     const detected = displayList(parseJson(stdout));
     const monitors: Monitor[] = [];
     this.monitorById.clear();
@@ -108,12 +119,13 @@ export class LinuxMonitorBackend {
   private async probeMonitor(display: number): Promise<{ capabilities: MonitorCapabilities; settings: MonitorSetting[] }> {
     const capabilities: MonitorCapabilities = {};
     const settings: MonitorSetting[] = [];
-    // ddcutil transactions are serialized because concurrent I2C queries can
-    // contend on adapters and produce transient false negatives.
     for (const [id, info] of Object.entries(VCP_CODES)) {
       try {
         const result = await this.readVcp(display, info.code, 5000);
-        if (!result) continue;
+        if (!result) {
+          capabilities[id] = { supported: false, min: info.defaultMin, max: info.defaultMax, step: info.defaultStep, vcpCode: info.code, type: info.type, category: info.category, description: info.description };
+          continue;
+        }
         const max = asNumber(result.max ?? result.maximum ?? result.max_value) ?? info.defaultMax;
         const min = info.defaultMin;
         const current = asNumber(result.current ?? result.current_value);
@@ -142,7 +154,7 @@ export class LinuxMonitorBackend {
   async getSettings(monitorId: string): Promise<MonitorSetting[]> {
     const record = await this.findMonitor(monitorId);
     if (!record) return [];
-    const settings = await Promise.all(record.monitor.settings.map(async (setting) => {
+    return Promise.all(record.monitor.settings.map(async (setting) => {
       if (!setting.vcpCode || !setting.readable) return { ...setting };
       try {
         const value = await this.readVcp(record.display, setting.vcpCode, 4000);
@@ -150,7 +162,6 @@ export class LinuxMonitorBackend {
         return current === undefined ? { ...setting } : { ...setting, value: Math.max(setting.min, Math.min(setting.max, current)) };
       } catch { return { ...setting }; }
     }));
-    return settings;
   }
 
   async setSetting(monitorId: string, settingId: string, value: number): Promise<MonitorSetting | null> {

@@ -1,43 +1,29 @@
 {
   "name": "monitor-controller",
-  "productName": "Monitor Controller",
+  "productName": "AIONEXT Monitor Controller",
   "version": "2.0.0",
-  "description": "Universal monitor discovery and hardware control via DDC/CI - Adjust brightness, contrast, color temperature, and more on any monitor. Enterprise-grade profiles, audit logging, and fleet management.",
+  "description": "AIONEXT Monitor Controller — discover displays, adjust supported controls, and save reusable profiles.",
   "main": ".webpack/main",
   "private": true,
   "scripts": {
     "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
+    "package": "npm run icons && electron-forge package",
+    "make": "npm run icons && electron-forge make",
+    "publish": "npm run icons && electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests specified\" && exit 0",
+    "test": "echo \"No automated tests configured yet\" && exit 0",
     "icons": "node scripts/build-icons.js"
   },
   "keywords": [
-    "monitor",
-    "ddc-ci",
-    "brightness",
-    "contrast",
-    "color-temperature",
-    "hardware-control",
-    "display",
-    "electron"
+    "monitor", "ddc-ci", "brightness", "contrast", "color-temperature",
+    "hardware-control", "display", "electron", "aionext"
   ],
-  "author": {
-    "name": "AIONEXT",
-    "email": "contact@aionext.io"
-  },
+  "author": { "name": "AIONEXT", "email": "contact@aionext.io" },
   "license": "MIT",
   "homepage": "https://github.com/AIONEXT/monitor-controller",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/AIONEXT/monitor-controller.git"
-  },
-  "bugs": {
-    "url": "https://github.com/AIONEXT/monitor-controller/issues"
-  },
+  "repository": { "type": "git", "url": "https://github.com/AIONEXT/monitor-controller.git" },
+  "bugs": { "url": "https://github.com/AIONEXT/monitor-controller/issues" },
   "devDependencies": {
     "@electron-forge/cli": "^7.11.2",
     "@electron-forge/maker-deb": "^7.11.2",

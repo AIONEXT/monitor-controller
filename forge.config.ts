@@ -1,4 +1,3 @@
-import { app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { MakerDeb } from '@electron-forge/maker-deb';

@@ -16,17 +16,18 @@ interface WindowsDisplayInfo {
   MaxBrightness?: number;
 }
 
+interface WindowsMonitorRecord {
+  monitor: Monitor;
+  instanceName: string;
+}
+
 function asMonitorArray(value: unknown): WindowsDisplayInfo[] {
   if (Array.isArray(value)) return value as WindowsDisplayInfo[];
   return value && typeof value === 'object' ? [value as WindowsDisplayInfo] : [];
 }
 
-function parseDisplayId(id: string): string {
-  return id.replace(/^win-/, '').replace(/-/g, '\\');
-}
-
 export class WindowsMonitorBackend {
-  private monitorById = new Map<string, Monitor>();
+  private monitorById = new Map<string, WindowsMonitorRecord>();
 
   async getMonitors(): Promise<Monitor[]> {
     const script = `
@@ -57,8 +58,11 @@ export class WindowsMonitorBackend {
     try { parsed = JSON.parse(stdout.trim()); } catch { parsed = []; }
     const rows = asMonitorArray(parsed).filter((row) => row.InstanceName);
     this.monitorById.clear();
-    const monitors = rows.map((row, index) => {
-      const id = `win-${String(row.InstanceName).replace(/[^a-zA-Z0-9]/g, '-')}`;
+    return rows.map((row, index) => {
+      const instanceName = row.InstanceName as string;
+      // Preserve the actual WMI instance path. It contains separators which
+      // cannot safely be reconstructed from a sanitized display ID.
+      const id = `win-${index}-${instanceName.replace(/[^a-zA-Z0-9]/g, '-')}`;
       const brightnessInfo = VCP_CODES.brightness;
       const supported = row.BrightnessSupported === true && Number.isFinite(row.CurrentBrightness);
       const max = Number.isFinite(row.MaxBrightness) && (row.MaxBrightness as number) > 0 ? row.MaxBrightness as number : 100;
@@ -77,20 +81,19 @@ export class WindowsMonitorBackend {
         serialNumber: row.SerialNumber || 'Unknown', displayIndex: index, isPrimary: index === 0,
         capabilities, settings, ddcSupported: supported,
       };
-      this.monitorById.set(id, monitor);
+      this.monitorById.set(id, { monitor, instanceName });
       return monitor;
     });
-    return monitors;
   }
 
   async getSettings(monitorId: string): Promise<MonitorSetting[]> {
-    const monitor = await this.getMonitor(monitorId);
-    if (!monitor) return [];
-    const setting = monitor.settings.find((item) => item.id === 'brightness');
-    if (!setting) return [];
+    const record = await this.getMonitor(monitorId);
+    const setting = record?.monitor.settings.find((item) => item.id === 'brightness');
+    if (!record || !setting) return [];
+    const escapedInstance = record.instanceName.replace(/'/g, "''");
     const script = `
       $ErrorActionPreference = 'Stop'
-      $instance = '${parseDisplayId(monitorId).replace(/'/g, "''")}'
+      $instance = '${escapedInstance}'
       $display = Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightness | Where-Object { $_.InstanceName -eq $instance } | Select-Object -First 1
       if ($display) { @{ current = [int]$display.CurrentBrightness; max = [int]($display.Levels - 1) } | ConvertTo-Json -Compress }
     `;
@@ -103,14 +106,14 @@ export class WindowsMonitorBackend {
 
   async setSetting(monitorId: string, settingId: string, value: number): Promise<MonitorSetting | null> {
     if (settingId !== 'brightness' || !Number.isFinite(value)) return null;
-    const monitor = await this.getMonitor(monitorId);
-    const setting = monitor?.settings.find((item) => item.id === settingId);
-    if (!monitor || !setting || !setting.writable) return null;
+    const record = await this.getMonitor(monitorId);
+    const setting = record?.monitor.settings.find((item) => item.id === settingId);
+    if (!record || !setting || !setting.writable) return null;
     const clamped = Math.round(Math.max(setting.min, Math.min(setting.max, value)));
-    const instance = parseDisplayId(monitorId).replace(/'/g, "''");
+    const escapedInstance = record.instanceName.replace(/'/g, "''");
     const script = `
       $ErrorActionPreference = 'Stop'
-      $instance = '${instance}'
+      $instance = '${escapedInstance}'
       $methods = Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods | Where-Object { $_.InstanceName -eq $instance } | Select-Object -First 1
       if (-not $methods) { throw 'Brightness control is not available for this display' }
       $result = Invoke-CimMethod -InputObject $methods -MethodName WmiSetBrightness -Arguments @{ Timeout = [uint32]0; Brightness = [byte]${clamped} }
@@ -122,8 +125,8 @@ export class WindowsMonitorBackend {
   }
 
   async resetToDefaults(monitorId: string): Promise<MonitorSetting[]> {
-    const monitor = await this.getMonitor(monitorId);
-    const brightness = monitor?.settings.find((setting) => setting.id === 'brightness');
+    const record = await this.getMonitor(monitorId);
+    const brightness = record?.monitor.settings.find((setting) => setting.id === 'brightness');
     if (!brightness) return [];
     const value = Math.round((brightness.min + brightness.max) / 2);
     const result = await this.setSetting(monitorId, brightness.id, value);
@@ -131,14 +134,16 @@ export class WindowsMonitorBackend {
   }
 
   async getCapabilities(monitorId: string): Promise<MonitorCapabilities> {
-    const monitor = await this.getMonitor(monitorId);
-    return monitor ? Object.fromEntries(Object.entries(monitor.capabilities).map(([id, capability]) => [id, { ...capability }])) : {};
+    const record = await this.getMonitor(monitorId);
+    return record ? Object.fromEntries(Object.entries(record.monitor.capabilities).map(([id, capability]) => [id, { ...capability }])) : {};
   }
 
-  private async getMonitor(monitorId: string): Promise<Monitor | undefined> {
-    const cached = this.monitorById.get(monitorId);
-    if (cached) return cached;
-    await this.getMonitors();
-    return this.monitorById.get(monitorId);
+  private async getMonitor(monitorId: string): Promise<WindowsMonitorRecord | undefined> {
+    let record = this.monitorById.get(monitorId);
+    if (!record) {
+      await this.getMonitors();
+      record = this.monitorById.get(monitorId);
+    }
+    return record;
   }
 }
