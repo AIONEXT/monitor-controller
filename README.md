@@ -2,50 +2,47 @@
 
 **Every display. One control room.**
 
-Discover connected displays, adjust the controls your hardware actually exposes, and save a setup that feels right. AIONEXT Monitor Controller brings monitor discovery, supported DDC/CI controls, quick presets, and reusable calibration profiles into one focused desktop app.
+Discover connected displays, adjust the controls your hardware actually exposes, and save a setup you can reuse. AIONEXT Monitor Controller brings monitor discovery, supported controls, useful presets, and calibration profiles into one focused desktop app.
 
-![AIONEXT Monitor Controller product preview](assets/aionext-product-preview.svg)
+![AIONEXT Monitor Controller concept preview](assets/aionext-product-preview.svg)
+
+*Concept visualization; not a screenshot of the current application. Display names, values, and compatibility indicators are illustrative.*
 
 [![Build](https://github.com/AIONEXT/monitor-controller/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/AIONEXT/monitor-controller/actions/workflows/build-and-release.yml)
 [![Latest release](https://img.shields.io/github/v/release/AIONEXT/monitor-controller?display_name=tag)](https://github.com/AIONEXT/monitor-controller/releases)
 [![License](https://img.shields.io/github/license/AIONEXT/monitor-controller)](LICENSE)
 
-> AIONEXT Monitor Controller is an independent utility and is not affiliated with or endorsed by monitor manufacturers. Brand identification is for organization only; available controls depend on the display, connection, operating system, and hardware probe results.
+[**Get the latest release →**](https://github.com/AIONEXT/monitor-controller/releases) · [View source](https://github.com/AIONEXT/monitor-controller)
 
-## Your displays, in sync with your workflow
+> AIONEXT Monitor Controller is an independent utility, not affiliated with or endorsed by monitor manufacturers. Brand identification helps organize displays; it does not guarantee feature support.
 
-- **See what’s connected.** Discover displays and view manufacturer/model details when the OS and hardware expose them.
-- **Tune what’s supported.** Adjust probed controls such as brightness, contrast, color, input, and audio where available.
-- **Set the scene.** Apply practical presets; only controls detected as supported and writable are included.
-- **Keep your calibration.** Save profiles locally and import/export JSON backups.
-- **Know what works.** Review capability coverage based on probe results—not assumptions based on a logo.
-- **Stay in control.** Display communication happens locally through the platform backend.
+## Your display setup, made simpler
 
-### Brand-aware, with honest compatibility
+**Discover.** See connected displays and the manufacturer/model details your system provides.
 
-Brand recognition covers common manufacturers and families, including Acer, AOC, Apple, ASUS, BenQ, Dell, EIZO, Gigabyte, HP, Huawei, Lenovo, LG, MSI, Philips, Samsung, Sharp, and ViewSonic. This helps identify and organize monitors; it does **not** promise every feature on every model.
+**Adjust.** Work with controls the monitor and platform positively report as supported—such as brightness, contrast, color, input, or audio where available.
 
-## Get the app
+**Save.** Reuse practical presets and local calibration profiles; export JSON backups when you need them.
 
-Visit [GitHub Releases](https://github.com/AIONEXT/monitor-controller/releases) and choose an artifact that matches your operating system and architecture. Asset names and formats may vary between releases; use the notes attached to that release for exact download and installation details. No published release yet? Build from source below.
+**Understand.** Capability summaries reflect probe results instead of assumptions based on a brand name.
 
 ## Platform support
 
 | Platform | Discovery | Controls in the current backend |
 |---|---|---|
-| Windows 10/11 | WMI monitor discovery where metadata is exposed | Built-in brightness where Windows WMI brightness methods are available; general external-monitor DDC/CI is not claimed |
+| Windows 10/11 | WMI discovery where metadata is exposed | Built-in brightness where Windows WMI brightness methods are available; general external-monitor DDC/CI is not claimed |
 | Linux | `ddcutil` display discovery and VCP probing | Positively probed VCP controls through `ddcutil`, subject to DDC/CI and I²C permissions |
-| macOS 11+ | Display metadata via `system_profiler` when available | No writable DDC/CI controls in the current backend |
+| macOS 11+ | Display metadata through `system_profiler` when available | No writable DDC/CI controls in the current backend |
 
-**Getting no controls?** Enable DDC/CI in the monitor’s on-screen menu, use a direct HDMI/DisplayPort/USB-C connection if possible, and check whether a dock, KVM, adapter, or graphics driver blocks communication. Capability support varies by model and firmware. Do not rely on controls that the app does not show as supported.
+Controls vary by monitor model, firmware, connection path, and operating system. Enable DDC/CI in your monitor’s on-screen menu and try a direct HDMI/DisplayPort/USB-C connection if controls are unavailable. Docks, KVMs, adapters, and graphics drivers can block access.
 
-### Linux setup
+## Download
 
-Install `ddcutil` with your distribution’s package manager and follow its current documentation for I²C permissions. Some systems require the `i2c-dev` kernel module and access to the relevant I²C device. Re-login after changing group permissions. Avoid running the desktop app as root unless your distribution’s security guidance requires it.
+Choose an artifact for your operating system and architecture from [GitHub Releases](https://github.com/AIONEXT/monitor-controller/releases). Asset formats and names may vary by release; follow that release’s notes for exact download and installation details. No published release yet? Build from source below.
 
 ## Build and run
 
-**Prerequisites:** Node.js 20+ and npm 10+. Native packaging dependencies vary by OS; Linux may require GTK, NSS, libsecret, and build tools.
+Prerequisites: Node.js 20+ and npm 10+. Native packaging dependencies vary by operating system; Linux may require GTK, NSS, libsecret, and build tools.
 
 ```bash
 git clone https://github.com/AIONEXT/monitor-controller.git
@@ -57,25 +54,14 @@ npm run lint
 npm start
 ```
 
-Create local distributables with:
+Create local distributables with `npm run package` (unpacked application) or `npm run make` (configured Electron Forge makers for the current platform). Build on the target OS/architecture for reliable native packaging. A successful build does not imply code signing or notarization.
 
-```bash
-npm run package  # unpacked application
-npm run make     # Electron Forge makers configured for the current platform
-```
+## Local data and privacy
 
-Build on a matching OS/architecture for reliable native packaging. Code signing and notarization require platform-specific credentials; a successful local build does not imply a signed release.
+Monitor profiles, schedules, enterprise configuration, and bounded audit history are stored under Electron’s `userData/enterprise` directory. Calibration profiles are stored in renderer local storage. Exported profiles can contain setting values; review them before sharing. Basic display communication uses local platform backends and does not require a vendor cloud account.
 
-## Profiles, privacy, and data
+## Contribute
 
-Monitor profiles and schedules, enterprise configuration, and bounded audit history are stored locally under Electron’s `userData/enterprise` directory. Calibration profiles are stored in renderer local storage; use JSON export to back them up or transfer them. Review exported files before sharing, since profiles may contain monitor setting values.
+Report bugs or request features in [GitHub Issues](https://github.com/AIONEXT/monitor-controller/issues). Include OS/version, monitor model, connection path, and detected controls; redact serial numbers and personal information. See [CONTRIBUTING.md](CONTRIBUTING.md) and the [release checklist](docs/RELEASE-CHECKLIST.md).
 
-## Contributing and support
-
-- Report bugs and feature requests in [GitHub Issues](https://github.com/AIONEXT/monitor-controller/issues). Include OS/version, monitor model, connection path, and detected controls; redact serial numbers and personal information.
-- See [CONTRIBUTING.md](CONTRIBUTING.md) for development and pull request guidance.
-- See [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md) before publishing a release.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+MIT licensed. See [LICENSE](LICENSE).
