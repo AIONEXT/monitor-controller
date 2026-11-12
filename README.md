@@ -1,45 +1,49 @@
 # AIONEXT Monitor Controller
 
-**One clear place to manage the displays on your desk.** AIONEXT Monitor Controller discovers connected displays, exposes controls that each display actually reports, and helps you reuse your preferred setup across sessions.
+**Every display. One control room.**
+
+Discover connected displays, adjust the controls your hardware actually exposes, and save a setup that feels right. AIONEXT Monitor Controller brings monitor discovery, supported DDC/CI controls, quick presets, and reusable calibration profiles into one focused desktop app.
+
+![AIONEXT Monitor Controller product preview](assets/aionext-product-preview.svg)
 
 [![Build](https://github.com/AIONEXT/monitor-controller/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/AIONEXT/monitor-controller/actions/workflows/build-and-release.yml)
 [![Latest release](https://img.shields.io/github/v/release/AIONEXT/monitor-controller?display_name=tag)](https://github.com/AIONEXT/monitor-controller/releases)
 [![License](https://img.shields.io/github/license/AIONEXT/monitor-controller)](LICENSE)
 
-> AIONEXT Monitor Controller is an independent utility, not an official product of the monitor manufacturers listed below. Controls depend on the display, connection, operating system, and DDC/CI implementation; a brand match does not guarantee feature support.
+> AIONEXT Monitor Controller is an independent utility and is not affiliated with or endorsed by monitor manufacturers. Brand identification is for organization only; available controls depend on the display, connection, operating system, and hardware probe results.
 
-## At a glance
+## Your displays, in sync with your workflow
 
-- **Discover displays** and identify manufacturer/model information when available.
-- **Adjust detected controls** such as brightness, contrast, color, input, and audio where hardware and OS support them.
-- **Use quick presets** for common viewing tasks; only controls positively reported as writable are applied.
-- **Save calibration profiles** for reuse, with JSON import/export for backup or sharing.
-- **See capability coverage** based on real probe results rather than guessed brand support.
-- **Use one desktop app** across Windows, macOS, and Linux, with platform-specific control availability.
+- **See what’s connected.** Discover displays and view manufacturer/model details when the OS and hardware expose them.
+- **Tune what’s supported.** Adjust probed controls such as brightness, contrast, color, input, and audio where available.
+- **Set the scene.** Apply practical presets; only controls detected as supported and writable are included.
+- **Keep your calibration.** Save profiles locally and import/export JSON backups.
+- **Know what works.** Review capability coverage based on probe results—not assumptions based on a logo.
+- **Stay in control.** Display communication happens locally through the platform backend.
 
-### Brand-aware, not brand-locked
+### Brand-aware, with honest compatibility
 
-Brand identification recognizes common display makers and product families (including Acer, AOC, Apple, ASUS, BenQ, Dell, EIZO, Gigabyte, HP, Huawei, Lenovo, LG, MSI, Philips, Samsung, Sharp, and ViewSonic). It is used for labeling and profile organization only. DDC/CI VCP probing determines which hardware controls are exposed.
+Brand recognition covers common manufacturers and families, including Acer, AOC, Apple, ASUS, BenQ, Dell, EIZO, Gigabyte, HP, Huawei, Lenovo, LG, MSI, Philips, Samsung, Sharp, and ViewSonic. This helps identify and organize monitors; it does **not** promise every feature on every model.
 
-## Download
+## Get the app
 
-Visit [GitHub Releases](https://github.com/AIONEXT/monitor-controller/releases) and choose an artifact for your operating system. Release asset names can vary by version and architecture; check the release notes for the exact file and install instructions. If no release is published yet, build from source below.
+Visit [GitHub Releases](https://github.com/AIONEXT/monitor-controller/releases) and choose an artifact that matches your operating system and architecture. Asset names and formats may vary between releases; use the notes attached to that release for exact download and installation details. No published release yet? Build from source below.
 
-## Platform support and limitations
+## Platform support
 
-| Platform | Discovery | Hardware controls |
+| Platform | Discovery | Controls in the current backend |
 |---|---|---|
-| Windows 10/11 | Active WMI monitor discovery where the OS exposes display metadata | Built-in brightness control where WMI brightness methods are available; external DDC/CI VCP support is not currently claimed by this backend |
-| Linux | `ddcutil` display discovery and VCP probing | Supported VCP controls through `ddcutil`; requires working DDC/CI access and appropriate I²C permissions |
-| macOS 11+ | Display metadata discovery through `system_profiler` when available | This backend currently reports no writable DDC/CI controls |
+| Windows 10/11 | WMI monitor discovery where metadata is exposed | Built-in brightness where Windows WMI brightness methods are available; general external-monitor DDC/CI is not claimed |
+| Linux | `ddcutil` display discovery and VCP probing | Positively probed VCP controls through `ddcutil`, subject to DDC/CI and I²C permissions |
+| macOS 11+ | Display metadata via `system_profiler` when available | No writable DDC/CI controls in the current backend |
 
-**Before troubleshooting:** enable DDC/CI in the monitor OSD, try a direct HDMI/DisplayPort/USB-C connection, and check whether a dock, KVM, adapter, or GPU driver blocks DDC/CI. Results vary by monitor firmware and cable path. Do not rely on software to change controls that are not shown as supported.
+**Getting no controls?** Enable DDC/CI in the monitor’s on-screen menu, use a direct HDMI/DisplayPort/USB-C connection if possible, and check whether a dock, KVM, adapter, or graphics driver blocks communication. Capability support varies by model and firmware. Do not rely on controls that the app does not show as supported.
 
 ### Linux setup
 
-Install `ddcutil` using your distribution’s package manager and follow its current documentation for I²C permissions. On many systems that means loading `i2c-dev` and granting the logged-in user access to the relevant I²C device. Re-login after changing group membership. Avoid running the desktop app as root unless your distribution’s security guidance specifically requires it.
+Install `ddcutil` with your distribution’s package manager and follow its current documentation for I²C permissions. Some systems require the `i2c-dev` kernel module and access to the relevant I²C device. Re-login after changing group permissions. Avoid running the desktop app as root unless your distribution’s security guidance requires it.
 
-## Build and run from source
+## Build and run
 
 **Prerequisites:** Node.js 20+ and npm 10+. Native packaging dependencies vary by OS; Linux may require GTK, NSS, libsecret, and build tools.
 
@@ -53,25 +57,24 @@ npm run lint
 npm start
 ```
 
-Build local distributables with:
+Create local distributables with:
 
 ```bash
 npm run package  # unpacked application
-npm run make     # platform makers configured in Electron Forge
+npm run make     # Electron Forge makers configured for the current platform
 ```
 
-Use a matching operating system/architecture for reliable native packaging. Code signing and notarization require platform credentials and are not implied by a successful local build.
+Build on a matching OS/architecture for reliable native packaging. Code signing and notarization require platform-specific credentials; a successful local build does not imply a signed release.
 
 ## Profiles, privacy, and data
 
-Monitor profiles and schedules, enterprise configuration, and bounded audit history are stored locally under Electron’s `userData/enterprise` directory. Calibration profiles are stored in the renderer’s local storage; use the calibration panel’s JSON export to back them up or move them between installations. Profile transfer can include monitor setting values, so review exported files before sharing.
-
-The app communicates with connected display hardware only through its local platform backend. Linux `ddcutil` and Windows system management commands are invoked with argument arrays or fixed scripts; the app does not need a vendor cloud account for basic controls.
+Monitor profiles and schedules, enterprise configuration, and bounded audit history are stored locally under Electron’s `userData/enterprise` directory. Calibration profiles are stored in renderer local storage; use JSON export to back them up or transfer them. Review exported files before sharing, since profiles may contain monitor setting values.
 
 ## Contributing and support
 
-- Report a bug or request a feature in [GitHub Issues](https://github.com/AIONEXT/monitor-controller/issues). Include OS/version, monitor model, connection path, and which controls the app detected; remove serial numbers and other personal data from logs/screenshots.
+- Report bugs and feature requests in [GitHub Issues](https://github.com/AIONEXT/monitor-controller/issues). Include OS/version, monitor model, connection path, and detected controls; redact serial numbers and personal information.
 - See [CONTRIBUTING.md](CONTRIBUTING.md) for development and pull request guidance.
+- See [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md) before publishing a release.
 
 ## License
 

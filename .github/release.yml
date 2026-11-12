@@ -1,0 +1,29 @@
+# Release notes configuration for GitHub's generated changelog.
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - dependencies
+    authors:
+      - dependabot
+  categories:
+    - title: '✨ Highlights'
+      labels:
+        - feature
+        - enhancement
+    - title: '🐛 Fixes'
+      labels:
+        - bug
+        - fix
+    - title: '📦 Packaging and platform support'
+      labels:
+        - packaging
+        - platform
+        - release
+    - title: '📚 Documentation'
+      labels:
+        - documentation
+        - docs
+    - title: '🧰 Maintenance'
+      labels:
+        - '*'
