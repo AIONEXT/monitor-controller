@@ -1,0 +1,7 @@
+/* AIONEXT product identity */
+.brand-wordmark { display: flex; align-items: baseline; gap: 7px; }
+.brand-wordmark strong { color: var(--accent); font-size: 13px; font-weight: 800; letter-spacing: .12em; }
+.brand-wordmark > span { color: var(--fg-primary); font-size: 14px; font-weight: 600; }
+@media (max-width: 720px) {
+  .brand-wordmark > span { display: none; }
+}

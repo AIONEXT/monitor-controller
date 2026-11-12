@@ -1,291 +1,78 @@
-# Monitor Controller
+# AIONEXT Monitor Controller
 
-[![Version](https://img.shields.io/github/v/release/AIONEXT/monitor-controller)](https://github.com/AIONEXT/monitor-controller/releases)
+**One clear place to manage the displays on your desk.** AIONEXT Monitor Controller discovers connected displays, exposes controls that each display actually reports, and helps you reuse your preferred setup across sessions.
+
+[![Build](https://github.com/AIONEXT/monitor-controller/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/AIONEXT/monitor-controller/actions/workflows/build-and-release.yml)
+[![Latest release](https://img.shields.io/github/v/release/AIONEXT/monitor-controller?display_name=tag)](https://github.com/AIONEXT/monitor-controller/releases)
 [![License](https://img.shields.io/github/license/AIONEXT/monitor-controller)](LICENSE)
-[![Build Status](https://github.com/AIONEXT/monitor-controller/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/AIONEXT/monitor-controller/actions)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)]()
 
-Universal monitor discovery and hardware control via DDC/CI protocol. Adjust brightness, contrast, color temperature, and more on any monitor - no manufacturer-specific software required. Now with **enterprise-grade features** for commercial deployments.
+> AIONEXT Monitor Controller is an independent utility, not an official product of the monitor manufacturers listed below. Controls depend on the display, connection, operating system, and DDC/CI implementation; a brand match does not guarantee feature support.
 
-## ✨ Features
+## At a glance
 
-### Core Hardware Control
-- **Universal Compatibility** - Works with any DDC/CI compatible monitor (LG, Dell, Samsung, ASUS, BenQ, Acer, ViewSonic, etc.)
-- **Real-time Hardware Control** - Direct communication via DDC/CI protocol over HDMI/DisplayPort/USB-C
-- **Auto-Detection** - Automatically discovers connected monitors and reads EDID information
-- **30+ VCP Controls** - Brightness, contrast, RGB gain/offset, color temperature, gamma, power mode, input source, audio, gaming modes, HDR, and more
-- **Brand-Specific Compatibility** - Intelligent capability detection per manufacturer
+- **Discover displays** and identify manufacturer/model information when available.
+- **Adjust detected controls** such as brightness, contrast, color, input, and audio where hardware and OS support them.
+- **Use quick presets** for common viewing tasks; only controls positively reported as writable are applied.
+- **Save calibration profiles** for reuse, with JSON import/export for backup or sharing.
+- **See capability coverage** based on real probe results rather than guessed brand support.
+- **Use one desktop app** across Windows, macOS, and Linux, with platform-specific control availability.
 
-### Enterprise Features
-- **Configuration Profiles** - Capture and restore complete monitor setups; apply to any monitor or all at once
-- **Profile Export/Import** - Share configurations as JSON files across teams and deployments
-- **Audit Logging** - Every setting change is recorded with timestamps for compliance (SOC 2 / ISO 27001 friendly)
-- **Enterprise Config** - Toggle audit logging, remote management, admin requirements, monitor limits
-- **Preset Modes** - Standard, Gaming, Movie, Reading with one click
-- **Secure by Design** - Context-isolated IPC, no node integration in renderer, ASAR integrity fuses
-- **Auto-Updates** - Built-in update mechanism via GitHub Releases
-- **Cross-Platform** - Windows, macOS, and Linux support
-- **Accessible** - Full keyboard navigation and screen reader support
+### Brand-aware, not brand-locked
 
-## 📥 Download
+Brand identification recognizes common display makers and product families (including Acer, AOC, Apple, ASUS, BenQ, Dell, EIZO, Gigabyte, HP, Huawei, Lenovo, LG, MSI, Philips, Samsung, Sharp, and ViewSonic). It is used for labeling and profile organization only. DDC/CI VCP probing determines which hardware controls are exposed.
 
-> **Pre-built binaries** are published automatically whenever a release tag is pushed
-> (e.g. `v1.0.0`). Visit the [Releases page](https://github.com/AIONEXT/monitor-controller/releases)
-> to download the appropriate installer for your platform.
+## Download
 
-### Latest Release
-| Platform | Download |
-|----------|----------|
-| **Windows** | [MonitorControllerSetup.exe](https://github.com/AIONEXT/monitor-controller/releases) |
-| **macOS** | [MonitorController.dmg](https://github.com/AIONEXT/monitor-controller/releases) |
- | **Linux** | [monitor-controller-linux.zip](https://github.com/AIONEXT/monitor-controller/releases) |
+Visit [GitHub Releases](https://github.com/AIONEXT/monitor-controller/releases) and choose an artifact for your operating system. Release asset names can vary by version and architecture; check the release notes for the exact file and install instructions. If no release is published yet, build from source below.
 
-> **No releases yet?** Build from source in minutes — see below.
+## Platform support and limitations
 
-### Building from Source
+| Platform | Discovery | Hardware controls |
+|---|---|---|
+| Windows 10/11 | Active WMI monitor discovery where the OS exposes display metadata | Built-in brightness control where WMI brightness methods are available; external DDC/CI VCP support is not currently claimed by this backend |
+| Linux | `ddcutil` display discovery and VCP probing | Supported VCP controls through `ddcutil`; requires working DDC/CI access and appropriate I²C permissions |
+| macOS 11+ | Display metadata discovery through `system_profiler` when available | This backend currently reports no writable DDC/CI controls |
+
+**Before troubleshooting:** enable DDC/CI in the monitor OSD, try a direct HDMI/DisplayPort/USB-C connection, and check whether a dock, KVM, adapter, or GPU driver blocks DDC/CI. Results vary by monitor firmware and cable path. Do not rely on software to change controls that are not shown as supported.
+
+### Linux setup
+
+Install `ddcutil` using your distribution’s package manager and follow its current documentation for I²C permissions. On many systems that means loading `i2c-dev` and granting the logged-in user access to the relevant I²C device. Re-login after changing group membership. Avoid running the desktop app as root unless your distribution’s security guidance specifically requires it.
+
+## Build and run from source
+
+**Prerequisites:** Node.js 20+ and npm 10+. Native packaging dependencies vary by OS; Linux may require GTK, NSS, libsecret, and build tools.
 
 ```bash
-# 1. Clone and install dependencies
 git clone https://github.com/AIONEXT/monitor-controller.git
 cd monitor-controller
 npm ci
-
-# 2. Generate platform icons
 npm run icons
-
-# 3. Build installers (Windows/macOS/Linux)
-npm run make
-```
-
-> **Requirements:** Node.js 20+, npm 10+. On Linux also install `ddcutil` and add your user to the `i2c` group.
-
-## 🖥️ Requirements
-
-### Windows
-- Windows 10/11 (64-bit)
-- DDC/CI enabled in monitor OSD
-- Direct DisplayPort/HDMI/USB-C connection (no KVM/docks)
-
-### macOS
-- macOS 11+ (Apple Silicon or Intel)
-- **Limited support** - Only built-in display controls available
-- External monitors require manufacturer software
-
-### Linux
-- Ubuntu 20.04+, Fedora 35+, Arch, or compatible
-- `ddcutil` installed (`sudo apt install ddcutil` / `sudo dnf install ddcutil`)
-- User in `i2c` group: `sudo usermod -a -G i2c $USER`
-- Kernel module: `sudo modprobe i2c-dev`
-
-## 🔧 Supported Settings
-
-### Display
-| Setting | VCP Code | Description |
-|---------|----------|-------------|
-| Brightness | 0x10 | Backlight intensity |
-| Contrast | 0x12 | Contrast ratio |
-| Sharpness | 0x8D | Edge enhancement |
-| Black Level | 0x1D | Darkest black reproduction |
-| White Level | 0x1E | Brightest white reproduction |
-
-### Color
-| Setting | VCP Code | Description |
-|---------|----------|-------------|
-| Color Temperature | 0x14 | 3000K - 10000K |
-| Gamma | 0x72 | 1.8 - 2.6 |
-| Hue | 0x16 | Color hue shift |
-| Saturation | 0x18 | Color saturation |
-| RGB Gain (R/G/B) | 0x96/0x98/0x9A | Per-channel gain calibration |
-| RGB Offset (R/G/B) | 0x97/0x99/0x9B | Per-channel offset calibration |
-| Color Format | 0x8C | RGB / YPbPr selection |
-| Digital Vibrance | 0xE2 | Color vibrance boost |
-
-### Comfort
-| Setting | VCP Code | Description |
-|---------|----------|-------------|
-| Blue Light Filter | 0xE0 | Low blue light mode |
-| Auto Brightness | 0xD0 | Ambient light adaptive |
-| Eco Mode | 0x1A | Energy saving modes |
-| Flicker Free | 0xE1 | PWM flicker reduction |
-
-### Advanced / Gaming
-| Setting | VCP Code | Description |
-|---------|----------|-------------|
-| Overscan | 0xD8 | Image overscan adjustment |
-| Aspect Ratio | 0xD9 | 4:3, 16:9, 16:10, 21:9, 1:1 |
-| Dynamic Contrast | 0xE4 | Automatic contrast |
-| Response Time | 0xE5 | Pixel response presets |
-| Game Mode | 0xE6 | Low latency mode |
-| HDR Mode | 0xE7 | High Dynamic Range |
-
-### Power / Input / Audio
-| Setting | VCP Code | Description |
-|---------|----------|-------------|
-| Power Mode | 0xD6 | On / Standby / Suspend / Off / Deep Sleep |
-| Power Save | 0xD7 | Automatic power saving |
-| Input Source | 0x60 | VGA / DVI / DP / HDMI-1..4 / USB-C |
-| Auto Input | 0x61 | Automatic input detection |
-| Volume | 0x62 | Built-in speaker volume |
-| Mute | 0x63 | Audio mute |
-| Audio Input | 0x64 | Audio source selection |
-
-*Availability depends on monitor capabilities and brand support*
-
-## 🏢 Enterprise Usage
-
-### Configuration Profiles
-Capture any monitor's complete state into a named profile and restore it anytime:
-1. Adjust settings to your desired state
-2. **Profiles → New Profile → Save Current Settings**
-3. Apply to any monitor (or all) with one click
-4. Export profiles as JSON to share across your fleet
-
-### Audit Logging
-All setting changes are persisted to `%APPDATA%/monitor-controller/enterprise/audit-log.json` (platform equivalent) including timestamp, monitor, setting, old/new values, and action type - ready for compliance review.
-
-### Data Locations
-| Data | Location |
-|------|----------|
-| Profiles | `<userData>/enterprise/profiles.json` |
-| Schedules | `<userData>/enterprise/schedules.json` |
-| Audit Log | `<userData>/enterprise/audit-log.json` |
-| Enterprise Config | `<userData>/enterprise/config.json` |
-
-## 🚀 Quick Start
-
-1. **Enable DDC/CI** on your monitor via OSD menu
-2. **Connect directly** via DisplayPort, HDMI, or USB-C (no docks/KVMs)
-3. **Download & install** the appropriate package for your OS
-4. **Launch** Monitor Controller - it auto-detects your monitors
-5. **Adjust settings** using sliders or apply presets
-
-## 🛠️ Development
-
-### Prerequisites
-- Node.js 20+
-- npm 10+
-- Windows: Visual Studio 2022 with "Desktop development with C++" workload
-- Linux: `sudo apt install libsecret-1-dev`
-
-### Setup
-```bash
-# Clone repository
-git clone https://github.com/AIONEXT/monitor-controller.git
-cd monitor-controller
-
-# Install dependencies
-npm ci
-
-# Start development server
-npm run start
-```
-
-### Build Commands
-```bash
-# Development
-npm run start
-
-# Package (unpacked)
-npm run package
-
-# Build signed installers
-npm run make
-
-# Publish to GitHub Releases
-npm run publish
-
-# Linting
-npm run lint
-
-# Type checking
 npm run typecheck
+npm run lint
+npm start
 ```
 
-## 🔐 Code Signing
+Build local distributables with:
 
-For commercial distribution, configure code signing:
-
-1. Obtain EV Code Signing Certificate (PFX format)
-2. Place in `certs/certificate.pfx`
-3. Set environment variables:
-   ```bash
-   export CERT_FILE=./certs/certificate.pfx
-   export CERT_PASSWORD=your_password
-   ```
-4. Add secrets to GitHub Actions:
-   - `CERT_BASE64` - Base64 encoded PFX
-   - `CERT_PASSWORD` - Certificate password
-   - `GH_TOKEN` - GitHub token for releases
-
-## 📁 Project Structure
-
-```
-monitor-controller/
-├── src/
-│   ├── index.ts              # Main process entry + IPC handlers
-│   ├── preload.ts            # Secure IPC bridge (context isolation)
-│   ├── renderer.tsx          # Renderer entry
-│   ├── App.tsx               # Main React component
-│   ├── monitor-manager.ts    # Monitor orchestration + caching
-│   ├── monitor-types.ts      # TypeScript interfaces + VCP code registry
-│   ├── auto-updater.ts       # Update handling
-│   ├── enterprise-store.ts   # Persistent store (profiles/schedules/audit/config)
-│   ├── enterprise-handlers.ts# Enterprise IPC handler registration
-│   ├── types/
-│   │   └── electron-api.d.ts # Electron API type declarations
-│   ├── services/
-│   │   └── enterprise-service.ts # Renderer-side enterprise client
-│   ├── hardware/
-│   │   ├── platform-detector.ts
-│   │   ├── factory.ts        # Backend factory
-│   │   ├── windows-backend.ts   # WMI + Windows APIs
-│   │   ├── linux-backend.ts     # ddcutil CLI
-│   │   └── macos-backend.ts     # Limited support
-│   └── components/
-│       ├── Header.tsx
-│       ├── MonitorSelector.tsx
-│       ├── SettingsPanel.tsx
-│       ├── SettingSlider.tsx
-│       ├── SettingSelect.tsx
-│       ├── PresetsPanel.tsx
-│       ├── ProfileManager.tsx   # Enterprise configuration profiles
-│       ├── UpdateBanner.tsx
-│       ├── Toast.tsx
-│       └── Icon.tsx
-├── assets/                   # Icons (generated from icon.svg)
-├── certs/                    # Code signing certificates (gitignored)
-├── docs/                     # Setup & architecture guides
-├── .github/workflows/        # CI/CD pipelines
-├── forge.config.ts           # Electron Forge config
-├── webpack.*.ts              # Webpack configs
-└── tsconfig.json             # TypeScript config
+```bash
+npm run package  # unpacked application
+npm run make     # platform makers configured in Electron Forge
 ```
 
-## 🤝 Contributing
+Use a matching operating system/architecture for reliable native packaging. Code signing and notarization require platform credentials and are not implied by a successful local build.
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+## Profiles, privacy, and data
 
-### Code Style
-- TypeScript strict mode
-- ESLint + Prettier
-- React functional components with hooks
-- CSS custom properties for theming
+Monitor profiles and schedules, enterprise configuration, and bounded audit history are stored locally under Electron’s `userData/enterprise` directory. Calibration profiles are stored in the renderer’s local storage; use the calibration panel’s JSON export to back them up or move them between installations. Profile transfer can include monitor setting values, so review exported files before sharing.
 
-## 📄 License
+The app communicates with connected display hardware only through its local platform backend. Linux `ddcutil` and Windows system management commands are invoked with argument arrays or fixed scripts; the app does not need a vendor cloud account for basic controls.
 
-MIT License - see [LICENSE](LICENSE) for details.
+## Contributing and support
 
-## ⚠️ Disclaimer
+- Report a bug or request a feature in [GitHub Issues](https://github.com/AIONEXT/monitor-controller/issues). Include OS/version, monitor model, connection path, and which controls the app detected; remove serial numbers and other personal data from logs/screenshots.
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for development and pull request guidance.
 
-This software communicates directly with monitor hardware via DDC/CI. While extensively tested, use at your own risk. Incorrect settings may cause display issues (recoverable via monitor OSD reset).
+## License
 
-## 🙏 Acknowledgments
-
-- [ddcutil](https://github.com/rockowitz/ddcutil) - Linux DDC/CI implementation
-- [WMI Monitor Classes](https://learn.microsoft.com/en-us/windows/win32/wmi/monitor-classes) - Windows monitor APIs
-- [Electron](https://www.electronjs.org/) - Cross-platform desktop framework
-- [Electron Forge](https://www.electronforge.io/) - Build tooling
+MIT. See [LICENSE](LICENSE).
