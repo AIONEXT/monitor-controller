@@ -1,8 +1,12 @@
 import React from 'react';
 import type { Monitor, MonitorSetting } from '../monitor-types';
 import {
-  exportBrandCalibrations, importBrandCalibrations, listBrandCalibrations, removeBrandCalibration,
-  saveBrandCalibration, type BrandCalibrationProfile,
+  exportBrandCalibrations,
+  importBrandCalibrations,
+  listBrandCalibrations,
+  removeBrandCalibration,
+  saveBrandCalibration,
+  type BrandCalibrationProfile,
 } from '../services/universal-control';
 import { Icon } from './Icon';
 
@@ -21,7 +25,10 @@ export const BrandCalibrationPanel: React.FC<BrandCalibrationPanelProps> = ({ mo
   React.useEffect(refresh, [refresh]);
 
   const saveCurrent = () => {
-    if (settings.length === 0) { showToast('No monitor settings are available to save', 'info'); return; }
+    if (settings.length === 0) {
+      showToast('No monitor settings are available to save', 'info');
+      return;
+    }
     try {
       const name = window.prompt('Name this calibration profile:', `${brand} ${monitor.model} calibration`);
       if (name === null) return;
@@ -35,20 +42,30 @@ export const BrandCalibrationPanel: React.FC<BrandCalibrationPanelProps> = ({ mo
   };
 
   const deleteProfile = (profileId: string) => {
-    try { removeBrandCalibration(profileId); refresh(); }
-    catch (error) { console.error('Failed to remove brand calibration:', error); showToast('Could not remove calibration', 'error'); }
+    try {
+      removeBrandCalibration(profileId);
+      refresh();
+    } catch (error) {
+      console.error('Failed to remove brand calibration:', error);
+      showToast('Could not remove calibration', 'error');
+    }
   };
 
   const exportProfiles = () => {
+    let url: string | undefined;
     try {
       const blob = new Blob([exportBrandCalibrations(brand)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
+      url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `monitor-calibrations-${brand.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`;
       link.click();
-      URL.revokeObjectURL(url);
-    } catch (error) { console.error('Calibration export failed:', error); showToast('Could not export calibration profiles', 'error'); }
+    } catch (error) {
+      console.error('Calibration export failed:', error);
+      showToast('Could not export calibration profiles', 'error');
+    } finally {
+      if (url) window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
   };
 
   const importFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,10 +87,25 @@ export const BrandCalibrationPanel: React.FC<BrandCalibrationPanelProps> = ({ mo
       <div className="sidebar-header">
         <h3 className="section-title"><Icon name="sliders" size={16} /> {brand} Calibration</h3>
         <div className="calibration-actions">
-          <button className="icon-btn" onClick={exportProfiles} aria-label={`Export ${brand} calibrations`} title="Export profiles"><Icon name="download" size={15} /></button>
-          <button className="icon-btn" onClick={() => fileInput.current?.click()} aria-label="Import calibrations" title="Import profiles"><Icon name="plus" size={16} /></button>
-          <button className="icon-btn" onClick={saveCurrent} disabled={settings.length === 0} aria-label={`Save ${brand} calibration`} title="Save current supported settings"><Icon name="plus" size={16} /></button>
-          <input ref={fileInput} className="visually-hidden" type="file" accept="application/json,.json" onChange={importFile} aria-label="Import calibration JSON file" />
+          <button type="button" className="icon-btn" onClick={exportProfiles} aria-label={`Export ${brand} calibrations`} title="Export profiles">
+            <Icon name="download" size={15} />
+          </button>
+          <button type="button" className="icon-btn" onClick={() => fileInput.current?.click()} aria-label="Import calibrations" title="Import profiles">
+            <Icon name="plus" size={16} />
+          </button>
+          <button type="button" className="icon-btn" onClick={saveCurrent} disabled={settings.length === 0} aria-label={`Save ${brand} calibration`} title="Save current supported settings">
+            <Icon name="plus" size={16} />
+          </button>
+          <input
+            ref={fileInput}
+            id="calibration-import-file"
+            name="calibrationFile"
+            className="visually-hidden"
+            type="file"
+            accept="application/json,.json"
+            onChange={importFile}
+            aria-label="Import calibration JSON file"
+          />
         </div>
       </div>
       <p className="calibration-hint">Saved locally for this brand and model. Export JSON to back up or share.</p>
@@ -83,11 +115,13 @@ export const BrandCalibrationPanel: React.FC<BrandCalibrationPanelProps> = ({ mo
         <ul className="calibration-list">
           {profiles.map((profile) => (
             <li className="calibration-item" key={profile.id}>
-              <button className="calibration-apply" onClick={() => onApply(profile)} title={`Apply ${profile.name}`}>
+              <button type="button" className="calibration-apply" onClick={() => onApply(profile)} title={`Apply ${profile.name}`}>
                 <span>{profile.name}</span>
                 <small>{profile.model} · {new Date(profile.createdAt).toLocaleDateString()}</small>
               </button>
-              <button className="icon-btn" onClick={() => deleteProfile(profile.id)} aria-label={`Delete ${profile.name}`} title="Delete calibration"><Icon name="trash" size={14} /></button>
+              <button type="button" className="icon-btn" onClick={() => deleteProfile(profile.id)} aria-label={`Delete ${profile.name}`} title="Delete calibration">
+                <Icon name="trash" size={14} />
+              </button>
             </li>
           ))}
         </ul>

@@ -122,26 +122,32 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({ monitors, onAppl
       {creating && (
         <div className="profile-create-form">
           <input
+            id="profile-name"
+            name="profileName"
             type="text"
             placeholder="Profile name (e.g. Office Day)"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             className="profile-input"
             aria-label="Profile name"
+            autoComplete="off"
           />
           <input
+            id="profile-description"
+            name="profileDescription"
             type="text"
             placeholder="Description (optional)"
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
             className="profile-input"
             aria-label="Profile description"
+            autoComplete="off"
           />
           <div className="profile-create-actions">
-            <button className="btn-primary btn-sm" onClick={handleCreate}>
+            <button type="button" className="btn-primary btn-sm" onClick={handleCreate}>
               <Icon name="check" size={14} /> Save Current Settings
             </button>
-            <button className="btn-ghost btn-sm" onClick={() => setCreating(false)}>
+            <button type="button" className="btn-ghost btn-sm" onClick={() => setCreating(false)}>
               Cancel
             </button>
           </div>
@@ -165,13 +171,13 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({ monitors, onAppl
                 </span>
               </div>
               <div className="profile-actions">
-                <button className="btn-primary btn-sm" onClick={() => handleApply(profile)} title="Apply profile">
+                <button type="button" className="btn-primary btn-sm" onClick={() => handleApply(profile)} title="Apply profile">
                   <Icon name="check" size={14} /> Apply
                 </button>
-                <button className="icon-btn" onClick={() => handleExport(profile)} title="Export profile" aria-label={`Export ${profile.name}`}>
+                <button type="button" className="icon-btn" onClick={() => handleExport(profile)} title="Export profile" aria-label={`Export ${profile.name}`}>
                   <Icon name="download" size={14} />
                 </button>
-                <button className="icon-btn danger" onClick={() => handleDelete(profile)} title="Delete profile" aria-label={`Delete ${profile.name}`}>
+                <button type="button" className="icon-btn danger" onClick={() => handleDelete(profile)} title="Delete profile" aria-label={`Delete ${profile.name}`}>
                   <Icon name="trash" size={14} />
                 </button>
               </div>
