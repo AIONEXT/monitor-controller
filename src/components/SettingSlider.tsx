@@ -1,5 +1,5 @@
 import React from 'react';
-import { MonitorSetting } from '../monitor-types';
+import type { MonitorSetting } from '../monitor-types';
 import { Icon, type IconName } from './Icon';
 
 interface SettingSliderProps {
@@ -22,99 +22,95 @@ const ICON_MAP: Record<string, IconName> = {
 
 export const SettingSlider: React.FC<SettingSliderProps> = ({ setting, onChange }) => {
   const [value, setValue] = React.useState(setting.value);
-  const sliderRef = React.useRef<HTMLInputElement>(null);
-
+  const sliderId = `setting-${setting.id}-slider`;
+  const valueId = `setting-${setting.id}-value`;
   const iconName = ICON_MAP[setting.id] || 'sliders';
 
+  React.useEffect(() => {
+    setValue(setting.value);
+  }, [setting.value]);
+
   const handleChange = (newValue: number) => {
-    const steppedValue = Math.round(newValue / setting.step) * setting.step;
+    const step = Number.isFinite(setting.step) && setting.step > 0 ? setting.step : 1;
+    const steppedValue = setting.min + Math.round((newValue - setting.min) / step) * step;
     const clampedValue = Math.max(setting.min, Math.min(setting.max, steppedValue));
     setValue(clampedValue);
     onChange(setting.id, clampedValue);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    let newValue = value;
-    let handled = true;
-    
-    switch (e.key) {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    let nextValue = value;
+    switch (event.key) {
       case 'ArrowRight':
       case 'ArrowUp':
-        e.preventDefault();
-        newValue = value + setting.step;
+        event.preventDefault();
+        nextValue = value + setting.step;
         break;
       case 'ArrowLeft':
       case 'ArrowDown':
-        e.preventDefault();
-        newValue = value - setting.step;
+        event.preventDefault();
+        nextValue = value - setting.step;
         break;
       case 'Home':
-        e.preventDefault();
-        newValue = setting.min;
+        event.preventDefault();
+        nextValue = setting.min;
         break;
       case 'End':
-        e.preventDefault();
-        newValue = setting.max;
+        event.preventDefault();
+        nextValue = setting.max;
         break;
       case 'PageUp':
-        e.preventDefault();
-        newValue = value + setting.step * 10;
+        event.preventDefault();
+        nextValue = value + setting.step * 10;
         break;
       case 'PageDown':
-        e.preventDefault();
-        newValue = value - setting.step * 10;
+        event.preventDefault();
+        nextValue = value - setting.step * 10;
         break;
       default:
-        handled = false;
+        return;
     }
-    
-    if (handled) {
-      handleChange(newValue);
-    }
+    handleChange(nextValue);
   };
 
-  const percentage = setting.max > setting.min 
-    ? ((value - setting.min) / (setting.max - setting.min)) * 100 
+  const percentage = setting.max > setting.min
+    ? ((value - setting.min) / (setting.max - setting.min)) * 100
     : 0;
 
   return (
     <div className="setting-item">
       <div className="setting-header">
-        <div className={`setting-icon setting-icon-${setting.id}`}>
+        <div className={`setting-icon setting-icon-${setting.id}`} aria-hidden="true">
           <Icon name={iconName} size={18} />
         </div>
         <div className="setting-info">
-          <label htmlFor={setting.id}>{setting.name}</label>
-          <div className="setting-range">{setting.min}{setting.unit} - {setting.max}{setting.unit}</div>
+          <label htmlFor={sliderId}>{setting.name}</label>
+          <div className="setting-range" id={`${sliderId}-range`}>
+            {setting.min}{setting.unit} - {setting.max}{setting.unit}
+          </div>
         </div>
-        <div className="setting-value" id={setting.id}>
+        <output className="setting-value" id={valueId} htmlFor={sliderId}>
           {value}{setting.unit}
-        </div>
+        </output>
       </div>
       <div className="slider-container">
         <input
-          ref={sliderRef}
           type="range"
-          id={`${setting.id}-slider`}
+          id={sliderId}
+          name={sliderId}
           min={setting.min}
           max={setting.max}
-          step={setting.step}
+          step={Number.isFinite(setting.step) && setting.step > 0 ? setting.step : 1}
           value={value}
-          onChange={(e) => handleChange(Number(e.target.value))}
+          onChange={(event) => handleChange(Number(event.target.value))}
           onKeyDown={handleKeyDown}
           className="slider"
           style={{ '--slider-progress': `${percentage}%` } as React.CSSProperties}
-          aria-label={setting.name}
-          aria-valuemin={setting.min}
-          aria-valuemax={setting.max}
-          aria-valuenow={value}
-          tabIndex={0}
+          aria-describedby={`${sliderId}-range ${valueId}`}
+          aria-valuetext={`${value}${setting.unit}`}
         />
-        <div className="slider-track">
-          <div 
-            className="slider-progress" 
-            style={{ width: `${percentage}%` } as React.CSSProperties}
-          />
+        <div className="slider-track" aria-hidden="true">
+          <div className="slider-progress" style={{ width: `${percentage}%` } as React.CSSProperties} />
         </div>
       </div>
     </div>
